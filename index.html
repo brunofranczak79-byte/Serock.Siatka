@@ -3,39 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siatkówka Serock</title>
+    <title>Siatkówka Serock - System Tygodniowy</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
-        h2 { color: #1a73e8; text-align: center; margin-bottom: 5px; }
-        .status { padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; font-size: 1.1rem; border: 1px solid #ccc; }
-        .open { background: #e6f4ea; color: #1e8e3e; border-color: #1e8e3e; }
-        .waiting { background: #fff4e5; color: #664d03; border-color: #ff9800; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; }
-        .btn-join:disabled { background-color: #ccc; cursor: not-allowed; }
-        .list-header { border-top: 2px solid #eee; padding-top: 15px; margin-top: 20px; font-weight: bold; display: flex; justify-content: space-between; }
-        ul { list-style: none; padding: 0; margin-bottom: 20px; }
-        li { background: #f8f9fa; margin: 8px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
-        .reserve-li { background: #fff3e0; border-color: #ffe0b2; }
-        .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 5px; }
-        .timer { font-size: 1.3rem; margin-top: 5px; color: #e65100; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            /* NOWE TŁO ZE ZDJĘCIA + NIEBIESKI ODCIEN */
+            background-image: linear-gradient(rgba(0, 50, 150, 0.4), rgba(0, 50, 150, 0.4)), url('https://siatkowkaserock.github.io/Serock.Siatka/image_7.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .container { 
+            /* MODERNA, PRZEZROCZYSTA WIZUALIZACJA */
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        h2 { 
+            color: #004ba0; 
+            text-align: center; 
+            margin: 0 0 15px 0;
+            font-size: 2.2rem;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .status { 
+            padding: 18px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin-bottom: 25px; 
+            font-weight: bold; 
+            font-size: 1.2rem; 
+            border: 2px solid;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .open { background: rgba(230, 244, 234, 0.9); color: #1e8e3e; border-color: #1e8e3e; }
+        .waiting { background: rgba(255, 244, 229, 0.9); color: #e65100; border-color: #ff9800; }
+
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            margin-bottom: 15px; 
+            border: 2px solid rgba(0,0,0,0.1); 
+            border-radius: 10px; 
+            box-sizing: border-box; 
+            font-size: 1.1rem;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        input:focus { border-color: #1a73e8; outline: none; }
+
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            transition: 0.2s;
+        }
+        .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-join:hover { background-color: #1557b0; transform: translateY(-1px); }
+        .btn-join:disabled { background-color: rgba(204, 204, 204, 0.6); cursor: not-allowed; box-shadow: none; }
+
+        .list-header { 
+            border-top: 2px solid rgba(0,0,0,0.05); 
+            padding-top: 20px; 
+            margin-top: 25px; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 1.1rem;
+            color: #444;
+        }
+        ul { list-style: none; padding: 0; margin-bottom: 25px; }
+        li { 
+            background: rgba(248, 249, 2fa, 0.8); 
+            margin: 10px 0; 
+            padding: 14px; 
+            border-radius: 10px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .reserve-li { background: rgba(255, 243, 224, 0.8); border-color: #ffe0b2; }
+        .btn-remove { 
+            background: #ff4d4d; 
+            color: white; 
+            width: auto; 
+            padding: 8px 15px; 
+            font-size: 0.85rem; 
+            border-radius: 6px; 
+        }
+        .btn-remove:hover { background: #cc0000; }
+        .timer { font-size: 1.5rem; margin-top: 5px; color: #cc4d00; text-shadow: 1px 1px 1px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🏐 Siatkówka Serock</h2>
-    <div id="status-box" class="status">Łączenie z bazą...</div>
+    <div id="status-box" class="status">Zapisy OTWARTE</div>
 
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
     <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
 
-    <div class="list-header" style="color: #1a73e8;">SKŁAD GŁÓWNY <span id="main-counter">0/14</span></div>
+    <div class="list-header" style="color: #004ba0;">SKŁAD (MAX 14) <span id="main-counter">0/14</span></div>
     <ul id="mainList"></ul>
 
-    <div class="list-header" style="color: #ef6c00;">REZERWA <span id="reserve-counter">0/10</span></div>
+    <div class="list-header" style="color: #ef6c00;">REZERWA (MAX 10) <span id="reserve-counter">0/10</span></div>
     <ul id="reserveList"></ul>
 </div>
 
@@ -43,7 +134,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-    // Konfiguracja Twojej bazy
+    // Konfiguracja Firebase (Minimalna dla Serock.Siatka)
     const firebaseConfig = {
         databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com"
     };
@@ -52,95 +143,9 @@
     const db = firebase.database();
     const playersRef = db.ref('players');
 
+    // System czasu: Niedziela 12:00 - Środa 19:30
     function updateSystem() {
         const now = new Date();
-        const day = now.getDay(); // 0: Niedz, 3: Środa
-        const hour = now.getHours();
-        const min = now.getMinutes();
-
-        // 1. Automatyczne zerowanie: Środa 23:59
-        if (day === 3 && hour === 23 && min === 59) {
-            playersRef.remove();
-        }
-
-        // 2. Okno zapisów: Niedziela 12:00 - Środa 19:30
-        const isSunAfter12 = (day === 0 && hour >= 12);
-        const isMonTue = (day === 1 || day === 2);
-        const isWedBefore1930 = (day === 3 && (hour < 19 || (hour === 19 && min < 30)));
-
-        const isOpen = isSunAfter12 || isMonTue || isWedBefore1930;
-        const statusBox = document.getElementById('status-box');
-        const joinBtn = document.getElementById('joinBtn');
-
-        if (isOpen) {
-            statusBox.innerText = "Zapisy OTWARTE";
-            statusBox.className = "status open";
-            joinBtn.disabled = false;
-        } else {
-            statusBox.className = "status waiting";
-            
-            // Obliczanie czasu do Niedzieli 12:00
-            const target = new Date();
-            target.setDate(now.getDate() + (7 - now.getDay()) % 7);
-            target.setHours(12, 0, 0, 0);
-            if (now >= target && day === 0) target.setDate(target.getDate() + 7);
-
-            const diff = target - now;
-            const d = Math.floor(diff / 86400000);
-            const h = Math.floor((diff % 86400000) / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            
-            statusBox.innerHTML = `Zapisy ruszą za:<br><div class="timer">${d}dni ${h}godz ${m}min ${s}sek</div>`;
-            joinBtn.disabled = true;
-        }
-    }
-
-    // Odświeżanie zegara co sekundę
-    setInterval(updateSystem, 1000);
-    updateSystem();
-
-    // Pobieranie graczy
-    playersRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        const mainList = document.getElementById('mainList');
-        const resList = document.getElementById('reserveList');
-        mainList.innerHTML = ""; resList.innerHTML = "";
-
-        if (!data) {
-            document.getElementById('main-counter').innerText = "0/14";
-            document.getElementById('reserve-counter').innerText = "0/10";
-            return;
-        }
-
-        const players = Object.keys(data).map(k => ({id:k, ...data[k]})).sort((a,b) => a.time - b.time);
-        
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            const content = `<span><b>${i < 14 ? i+1 : i-13}.</b> ${p.name}</span> <button class="btn-remove" onclick="removePlayer('${p.id}')">Usuń</button>`;
-            li.innerHTML = content;
-            if (i < 14) {
-                mainList.appendChild(li);
-            } else if (i < 24) {
-                li.className = "reserve-li";
-                resList.appendChild(li);
-            }
-        });
-        document.getElementById('main-counter').innerText = `${Math.min(players.length, 14)}/14`;
-        document.getElementById('reserve-counter').innerText = `${Math.max(0, Math.min(players.length-14, 10))}/10`;
-    });
-
-    function joinGame() {
-        const val = document.getElementById('nameInput').value.trim();
-        if (val) {
-            playersRef.push({name: val, time: Date.now()});
-            document.getElementById('nameInput').value = "";
-        }
-    }
-
-    function removePlayer(id) {
-        if(confirm("Usunąć z listy?")) db.ref('players/'+id).remove();
-    }
-</script>
-</body>
-</html>
+        const day = now.getDay(); // 0: Niedz
+        const h = now.getHours();
+        const m = now.
