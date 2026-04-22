@@ -118,3 +118,110 @@
 
 <div class="container">
     <h2>🏐 Siatkówka Serock</h2>
+    <div id="status-box" class="status">Zapisy OTWARTE</div>
+
+    <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
+    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
+
+    <div class="list-header" style="color: #004ba0;">SKŁAD (MAX 14) <span id="main-counter">0/14</span></div>
+    <ul id="mainList"></ul>
+
+    <div class="list-header" style="color: #ef6c00;">REZERWA (MAX 10) <span id="reserve-counter">0/10</span></div>
+    <ul id="reserveList"></ul>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+    // Konfiguracja Firebase (Dla Serock.Siatka)
+    const firebaseConfig = {
+        databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const playersRef = db.ref('players');
+
+    // System czasu: Niedziela 12:00 - Środa 19:30
+    function updateSystem() {
+        const now = new Date();
+        const day = now.getDay(); // 0: Niedz
+        const h = now.getHours();
+        const m = now.getMinutes();
+
+        // 1. Reset o 23:59 w każdą środę
+        if (day === 3 && h === 23 && m === 59 && now.getSeconds() === 0) playersRef.remove();
+
+        // 2. Warunek otwarcia: Niedziela 12:00 do Środy 19:30
+        const isSunOpen = (day === 0 && h >= 12);
+        const isMonTueOpen = (day === 1 || day === 2);
+        const isWedOpen = (day === 3 && (h < 19 || (h === 19 && m < 30)));
+
+        const isOpen = isSunOpen || isMonTueOpen || isWedOpen;
+        const statusBox = document.getElementById('status-box');
+        const joinBtn = document.getElementById('joinBtn');
+
+        if (isOpen) {
+            statusBox.innerText = "Zapisy OTWARTE";
+            statusBox.className = "status open";
+            joinBtn.disabled = false;
+        } else {
+            statusBox.className = "status waiting";
+            // Cel: najbliższa niedziela 12:00
+            let target = new Date();
+            target.setDate(now.getDate() + (7 - day) % 7);
+            target.setHours(12, 0, 0, 0);
+            if (day === 0 && h >= 12) target.setDate(target.getDate() + 7);
+
+            const diff = target - now;
+            const dd = Math.floor(diff / 86400000);
+            const hh = Math.floor((diff % 86400000) / 3600000);
+            const mm = Math.floor((diff % 3600000) / 60000);
+            const ss = Math.floor((diff % 60000) / 1000);
+            
+            statusBox.innerHTML = `Zapisy ruszą za:<br><div class="timer">${dd}d ${hh}h ${mm}m ${ss}s</div>`;
+            joinBtn.disabled = true;
+        }
+    }
+
+    setInterval(updateSystem, 1000);
+    updateSystem();
+
+    // Wyświetlanie listy z Firebase
+    playersRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        const mainL = document.getElementById('mainList');
+        const resL = document.getElementById('reserveList');
+        mainL.innerHTML = ""; resL.innerHTML = "";
+        
+        if (!data) {
+            document.getElementById('main-counter').innerText = "0/14";
+            document.getElementById('reserve-counter').innerText = "0/10";
+            return;
+        }
+
+        const players = Object.keys(data).map(k => ({id:k, ...data[k]})).sort((a,b) => a.time - b.time);
+        
+        players.forEach((p, i) => {
+            const li = document.createElement('li');
+            const content = `<span><b>${i < 14 ? i+1 : i-13}.</b> ${p.name}</span> <button class="btn-remove" onclick="removePlayer('${p.id}')">Usuń</button>`;
+            li.innerHTML = content;
+            if (i < 14) mainL.appendChild(li);
+            else if (i < 24) { li.className = "reserve-li"; resL.appendChild(li); }
+        });
+        document.getElementById('main-counter').innerText = `${Math.min(players.length, 14)}/14`;
+        document.getElementById('reserve-counter').innerText = `${Math.max(0, Math.min(players.length-14, 10))}/10`;
+    });
+
+    function joinGame() {
+        const val = document.getElementById('nameInput').value.trim();
+        if (val) { playersRef.push({name: val, time: Date.now()}); document.getElementById('nameInput').value = ""; }
+    }
+
+    function removePlayer(id) {
+        if(confirm("Wypisać z meczu?")) db.ref('players/'+id).remove();
+    }
+</script>
+</body>
+</html>
