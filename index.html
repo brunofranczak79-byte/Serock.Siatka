@@ -10,7 +10,6 @@
         h2 { color: #d32f2f; text-align: center; margin-bottom: 5px; }
         .status { padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; font-size: 1.1rem; }
         .open { background: #e6f4ea; color: #1e8e3e; border: 1px solid #1e8e3e; }
-        .closed { background: #fce8e6; color: #d93025; border: 1px solid #d93025; }
         .waiting { background: #fff4e5; color: #664d03; border: 1px solid #ff9800; }
         input { width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
@@ -19,22 +18,24 @@
         .list-header { border-top: 2px solid #eee; padding-top: 15px; margin-top: 20px; font-weight: bold; display: flex; justify-content: space-between; }
         ul { list-style: none; padding: 0; margin-bottom: 20px; }
         li { background: #f8f9fa; margin: 8px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
-        .timer { font-size: 1.2rem; margin-top: 5px; color: #e65100; }
+        .reserve-li { background: #fff3e0; border-color: #ffe0b2; }
+        .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 5px; }
+        .timer { font-size: 1.4rem; margin-top: 5px; color: #e65100; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚠️ TEST ZAPISÓW (20:30 / 20:33)</h2>
+    <h2>⚠️ TRYB TESTOWY</h2>
     <div id="status-box" class="status">Łączenie...</div>
 
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
     <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
 
-    <div class="list-header" style="color: #1a73e8;">SKŁAD GŁÓWNY <span id="main-counter">0/14</span></div>
+    <div class="list-header" style="color: #1a73e8;">SKŁAD (MAX 14) <span id="main-counter">0/14</span></div>
     <ul id="mainList"></ul>
 
-    <div class="list-header" style="color: #ef6c00;">REZERWA <span id="reserve-counter">0/10</span></div>
+    <div class="list-header" style="color: #ef6c00;">REZERWA (MAX 10) <span id="reserve-counter">0/10</span></div>
     <ul id="reserveList"></ul>
 </div>
 
@@ -58,47 +59,23 @@
 
     function updateSystem() {
         const now = new Date();
-        const hour = now.getHours();
-        const min = now.getMinutes();
+        const h = now.getHours();
+        const m = now.getMinutes();
+        const s = now.getSeconds();
 
-        // 1. TESTOWE ZEROWANIE: 20:33
-        if (hour === 20 && min === 33) {
+        // 1. ZEROWANIE TESTOWE: 20:33:00
+        if (h === 20 && m === 33 && s === 0) {
             playersRef.remove();
         }
 
-        // 2. TESTOWE OTWARCIE: Otwórz jeśli przed 20:30
-        const isOpen = (hour < 20) || (hour === 20 && min < 30);
-        
+        // 2. STATUS ZAPISÓW: Otwarte do 20:30
+        const isOpen = (h === 20 && m < 30) || (h < 20);
         const statusBox = document.getElementById('status-box');
         const joinBtn = document.getElementById('joinBtn');
 
         if (isOpen) {
-            statusBox.innerText = "Zapisy OTWARTE (Test)";
+            statusBox.innerText = "Zapisy TESTOWE OTWARTE";
             statusBox.className = "status open";
             joinBtn.disabled = false;
         } else {
-            // Timer do 20:33 (symulacja czekania na reset)
-            statusBox.className = "status waiting";
-            calculateTestCountdown(statusBox);
-            joinBtn.disabled = true;
-        }
-    }
-
-    function calculateTestCountdown(el) {
-        const now = new Date();
-        const target = new Date();
-        target.setHours(20, 33, 0, 0); 
-        
-        if (now >= target) {
-            el.innerText = "Zaraz nastąpi RESET...";
-            return;
-        }
-
-        const diff = target - now;
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        
-        el.innerHTML = `Reset listy za:<br><div class="timer">${m}min ${s}sek</div>`;
-    }
-
-    setInterval(updateSystem, 1000);
+            // TIMER tyka od 20:30 do 20:33
