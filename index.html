@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siatkówka - Zapisy OTWARTE</title>
+    <title>Siatkówka - System Rezerwowy</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
         h2 { color: #1a73e8; text-align: center; margin-bottom: 5px; }
         .status { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
         .open { background: #e6f4ea; color: #1e8e3e; }
@@ -15,10 +15,12 @@
         button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; }
         .btn-join:disabled { background-color: #ccc; }
-        .list-header { border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px; display: flex; justify-content: space-between; }
-        ul { list-style: none; padding: 0; }
+        .list-header { border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px; font-weight: bold; display: flex; justify-content: space-between; }
+        ul { list-style: none; padding: 0; margin-bottom: 20px; }
         li { background: #f8f9fa; margin: 5px 0; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
+        .reserve-li { background: #fff3e0; border-color: #ffe0b2; }
         .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 5px 10px; font-size: 0.8rem; }
+        .label-reserve { font-size: 0.7rem; background: #ff9800; color: white; padding: 2px 5px; border-radius: 3px; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -30,11 +32,11 @@
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
     <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
 
-    <div class="list-header">
-        <strong>Lista graczy:</strong>
-        <span id="counter">0/12</span>
-    </div>
-    <ul id="playerList"></ul>
+    <div class="list-header">SKŁAD GŁÓWNY <span id="main-counter">0/14</span></div>
+    <ul id="mainList"></ul>
+
+    <div class="list-header" style="color: #ef6c00;">LISTA REZERWOWA <span id="reserve-counter">0/10</span></div>
+    <ul id="reserveList"></ul>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -54,11 +56,12 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const playersRef = db.ref('players');
-    const maxPlayers = 12;
+    const MAX_MAIN = 14;
+    const MAX_RESERVE = 10;
 
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        renderList(data);
+        renderLists(data);
     });
 
     function joinGame() {
@@ -68,47 +71,50 @@
 
         playersRef.once('value', (snapshot) => {
             const players = snapshot.val() ? Object.values(snapshot.val()) : [];
-            if (players.length >= maxPlayers) return alert("Brak miejsc!");
-            playersRef.push(name);
+            if (players.length >= (MAX_MAIN + MAX_RESERVE)) {
+                return alert("Brak wolnych miejsc (nawet na rezerwie)!");
+            }
+            // Zapisujemy z aktualnym czasem, żeby wiedzieć kto był pierwszy na rezerwie
+            playersRef.push({ name: name, timestamp: Date.now() });
             input.value = "";
         });
     }
 
     function removePlayer(key) {
-        db.ref('players/' + key).remove();
+        if(confirm("Usunąć z listy?")) {
+            db.ref('players/' + key).remove();
+        }
     }
 
-    function renderList(data) {
-        const listEl = document.getElementById('playerList');
-        const counterEl = document.getElementById('counter');
+    function renderLists(data) {
+        const mainListEl = document.getElementById('mainList');
+        const reserveListEl = document.getElementById('reserveList');
         const statusBox = document.getElementById('status-box');
-        const joinBtn = document.getElementById('joinBtn');
         
-        listEl.innerHTML = "";
-        let count = 0;
+        mainListEl.innerHTML = "";
+        reserveListEl.innerHTML = "";
 
-        if (data) {
-            Object.keys(data).forEach((key) => {
-                count++;
-                const li = document.createElement('li');
-                li.innerHTML = `${count}. ${data[key]} <button class="btn-remove" onclick="removePlayer('${key}')">Usuń</button>`;
-                listEl.appendChild(li);
-            });
-        }
-
-        counterEl.innerText = `${count}/${maxPlayers}`;
-
-        // TERAZ STATUS ZALEŻY TYLKO OD LICZBY OSÓB (BEZ ZEGARA)
-        if (count >= maxPlayers) {
-            statusBox.innerText = "LISTA PEŁNA";
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-        } else {
+        if (!data) {
+            document.getElementById('main-counter').innerText = "0/14";
+            document.getElementById('reserve-counter').innerText = "0/10";
             statusBox.innerText = "Zapisy OTWARTE";
             statusBox.className = "status open";
-            joinBtn.disabled = false;
+            return;
         }
-    }
-</script>
-</body>
-</html>
+
+        // Sortujemy graczy według czasu zapisu
+        const playersArray = Object.keys(data).map(key => ({
+            id: key,
+            ...data[key]
+        })).sort((a, b) => a.timestamp - b.timestamp);
+
+        let mainCount = 0;
+        let reserveCount = 0;
+
+        playersArray.forEach((player, index) => {
+            const li = document.createElement('li');
+            if (index < MAX_MAIN) {
+                mainCount++;
+                li.innerHTML = `${mainCount}. ${player.name} <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
+                mainListEl.appendChild(li);
+            } else if (index < (MAX_MAIN + MAX_
