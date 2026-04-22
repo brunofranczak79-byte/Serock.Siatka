@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siatkówka - System Rezerwowy</title>
+    <title>Siatkówka Serock - Zapisy</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
@@ -11,16 +11,18 @@
         .status { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
         .open { background: #e6f4ea; color: #1e8e3e; }
         .closed { background: #fce8e6; color: #d93025; }
-        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.3s; }
         .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; }
-        .btn-join:disabled { background-color: #ccc; }
-        .list-header { border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px; font-weight: bold; display: flex; justify-content: space-between; }
+        .btn-join:hover { background-color: #1557b0; }
+        .btn-join:disabled { background-color: #ccc; cursor: not-allowed; }
+        .list-header { border-top: 2px solid #eee; padding-top: 15px; margin-top: 20px; font-weight: bold; display: flex; justify-content: space-between; font-size: 1.1rem; }
         ul { list-style: none; padding: 0; margin-bottom: 20px; }
-        li { background: #f8f9fa; margin: 5px 0; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
+        li { background: #f8f9fa; margin: 8px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .reserve-li { background: #fff3e0; border-color: #ffe0b2; }
-        .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 5px 10px; font-size: 0.8rem; }
-        .label-reserve { font-size: 0.7rem; background: #ff9800; color: white; padding: 2px 5px; border-radius: 3px; text-transform: uppercase; }
+        .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 5px; }
+        .btn-remove:hover { background: #cc0000; }
+        .label-reserve { font-size: 0.7rem; background: #ff9800; color: white; padding: 3px 6px; border-radius: 4px; text-transform: uppercase; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -32,7 +34,7 @@
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
     <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
 
-    <div class="list-header">SKŁAD GŁÓWNY <span id="main-counter">0/14</span></div>
+    <div class="list-header" style="color: #1a73e8;">SKŁAD GŁÓWNY <span id="main-counter">0/14</span></div>
     <ul id="mainList"></ul>
 
     <div class="list-header" style="color: #ef6c00;">LISTA REZERWOWA <span id="reserve-counter">0/10</span></div>
@@ -43,6 +45,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
+    // Twoja konfiguracja Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
         authDomain: "siatka-58398.firebaseapp.com",
@@ -59,29 +62,43 @@
     const MAX_MAIN = 14;
     const MAX_RESERVE = 10;
 
+    // Słuchanie zmian na żywo
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
         renderLists(data);
+    }, (error) => {
+        console.error(error);
+        document.getElementById('status-box').innerText = "BŁĄD: Sprawdź Rules w Firebase!";
     });
 
     function joinGame() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
-        if (!name) return alert("Wpisz imię!");
+        if (!name) return alert("Wpisz imię i nazwisko!");
 
         playersRef.once('value', (snapshot) => {
-            const players = snapshot.val() ? Object.values(snapshot.val()) : [];
+            const data = snapshot.val();
+            const players = data ? Object.values(data) : [];
+            
             if (players.length >= (MAX_MAIN + MAX_RESERVE)) {
-                return alert("Brak wolnych miejsc (nawet na rezerwie)!");
+                return alert("Brak wolnych miejsc, lista rezerwowa również jest pełna!");
             }
-            // Zapisujemy z aktualnym czasem, żeby wiedzieć kto był pierwszy na rezerwie
-            playersRef.push({ name: name, timestamp: Date.now() });
+            
+            // Sprawdzanie czy już jest na liście
+            const nameExists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
+            if (nameExists) return alert("Już jesteś na liście!");
+
+            // Dodanie gracza ze znacznikiem czasu dla poprawnej kolejności
+            playersRef.push({ 
+                name: name, 
+                timestamp: Date.now() 
+            });
             input.value = "";
         });
     }
 
     function removePlayer(key) {
-        if(confirm("Usunąć z listy?")) {
+        if(confirm("Czy na pewno chcesz się wypisać?")) {
             db.ref('players/' + key).remove();
         }
     }
@@ -90,6 +107,7 @@
         const mainListEl = document.getElementById('mainList');
         const reserveListEl = document.getElementById('reserveList');
         const statusBox = document.getElementById('status-box');
+        const joinBtn = document.getElementById('joinBtn');
         
         mainListEl.innerHTML = "";
         reserveListEl.innerHTML = "";
@@ -99,10 +117,11 @@
             document.getElementById('reserve-counter').innerText = "0/10";
             statusBox.innerText = "Zapisy OTWARTE";
             statusBox.className = "status open";
+            joinBtn.disabled = false;
             return;
         }
 
-        // Sortujemy graczy według czasu zapisu
+        // Sortowanie po czasie dopisania
         const playersArray = Object.keys(data).map(key => ({
             id: key,
             ...data[key]
@@ -115,6 +134,35 @@
             const li = document.createElement('li');
             if (index < MAX_MAIN) {
                 mainCount++;
-                li.innerHTML = `${mainCount}. ${player.name} <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
+                li.innerHTML = `<span><b>${mainCount}.</b> ${player.name}</span> <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
                 mainListEl.appendChild(li);
-            } else if (index < (MAX_MAIN + MAX_
+            } else if (index < (MAX_MAIN + MAX_RESERVE)) {
+                reserveCount++;
+                li.className = "reserve-li";
+                li.innerHTML = `<span><b>${reserveCount}.</b> ${player.name} <span class="label-reserve">REZERWA</span></span> <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
+                reserveListEl.appendChild(li);
+            }
+        });
+
+        document.getElementById('main-counter').innerText = `${mainCount}/14`;
+        document.getElementById('reserve-counter').innerText = `${reserveCount}/10`;
+
+        // Logika statusu
+        const total = mainCount + reserveCount;
+        if (total >= (MAX_MAIN + MAX_RESERVE)) {
+            statusBox.innerText = "BRAK MIEJSC";
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
+        } else if (mainCount >= MAX_MAIN) {
+            statusBox.innerText = "Zapisy na REZERWĘ";
+            statusBox.className = "status open"; // Kolor zielony dla rezerwy też, żeby zachęcać
+            joinBtn.disabled = false;
+        } else {
+            statusBox.innerText = "Zapisy OTWARTE";
+            statusBox.className = "status open";
+            joinBtn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
