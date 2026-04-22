@@ -57,108 +57,71 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const playersRef = db.ref('players');
-    let currentPlayers = [];
 
-    // Funkcja zarządzająca czasem i statusem
     function updateSystem() {
         const now = new Date();
-        const day = now.getDay(); // 0: Niedz, 1: Pon, 2: Wt, 3: Śr, 4: Czw, 5: Pt, 6: Sob
+        const day = now.getDay(); 
         const hour = now.getHours();
         const min = now.getMinutes();
-
-        let status = ""; 
-        let canRegister = false;
 
         // 1. Automatyczne zerowanie w środę o 23:59
         if (day === 3 && hour === 23 && min === 59) {
             playersRef.remove();
         }
 
-        // 2. Określanie czy zapisy są otwarte (Niedziela 18:00 - Środa 19:30)
-        const afterSundayStart = (day === 0 && hour >= 18) || (day > 0 && day < 3);
-        const beforeWednesdayEnd = (day === 3 && (hour < 19 || (hour === 19 && min < 30)));
+        // 2. Określanie okna zapisów: Niedziela 18:00 - Środa 19:30
+        const afterSun = (day === 0 && hour >= 18);
+        const monOrTue = (day === 1 || day === 2);
+        const beforeWed = (day === 3 && (hour < 19 || (hour === 19 && min < 30)));
 
-        if (afterSundayStart || beforeWednesdayEnd) {
-            status = "Zapisy OTWARTE";
-            canRegister = true;
-        } else if (day === 3 && (hour >= 19)) {
-            status = "Zapisy ZAKOŃCZONE";
+        const isOpen = afterSun || monOrTue || beforeWed;
+        const statusBox = document.getElementById('status-box');
+        const joinBtn = document.getElementById('joinBtn');
+
+        if (isOpen) {
+            statusBox.innerText = "Zapisy OTWARTE";
+            statusBox.className = "status open";
+            joinBtn.disabled = false;
+        } else if (day === 3 && hour >= 19) {
+            statusBox.innerText = "Zapisy ZAKOŃCZONE (Mecz trwa)";
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
         } else {
-            // Obliczanie czasu do niedzieli 18:00
-            status = "Zapisy zamknięte";
-            calculateCountdown();
-            return;
+            // Timer do niedzieli 18:00
+            statusBox.className = "status waiting";
+            calculateCountdown(statusBox);
+            joinBtn.disabled = true;
         }
-
-        const statusBox = document.getElementById('status-box');
-        statusBox.innerText = status;
-        statusBox.className = "status " + (canRegister ? "open" : "closed");
-        document.getElementById('joinBtn').disabled = !canRegister;
     }
 
-    function calculateCountdown() {
+    function calculateCountdown(el) {
         const now = new Date();
-        const nextSunday = new Date();
-        nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7);
-        nextSunday.setHours(18, 0, 0, 0);
-        if (now > nextSunday) nextSunday.setDate(nextSunday.getDate() + 7);
+        const target = new Date();
+        target.setDate(now.getDate() + (7 - now.getDay()) % 7);
+        target.setHours(18, 0, 0, 0);
+        if (now >= target) target.setDate(target.getDate() + 7);
 
-        const diff = nextSunday - now;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const mins = Math.floor((diff / (1000 * 60)) % 60);
-
-        const statusBox = document.getElementById('status-box');
-        statusBox.className = "status waiting";
-        statusBox.innerHTML = `Zapisy ruszą za:<br><div class="timer">${days}d ${hours}h ${mins}m</div>`;
-        document.getElementById('joinBtn').disabled = true;
+        const diff = target - now;
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        
+        el.innerHTML = `Zapisy ruszą za:<br><div class="timer">${d}d ${h}h ${m}m</div>`;
     }
 
-    // Odświeżaj zegar co minutę
-    setInterval(updateSystem, 60000);
+    setInterval(updateSystem, 1000);
     updateSystem();
 
-    // Reszta logiki (Firebase)
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        const mainListEl = document.getElementById('mainList');
-        const reserveListEl = document.getElementById('reserveList');
-        mainListEl.innerHTML = ""; reserveListEl.innerHTML = "";
-        
+        const mainList = document.getElementById('mainList');
+        const resList = document.getElementById('reserveList');
+        mainList.innerHTML = ""; resList.innerHTML = "";
+
         if (!data) {
             document.getElementById('main-counter').innerText = "0/14";
             document.getElementById('reserve-counter').innerText = "0/10";
             return;
         }
 
-        const playersArray = Object.keys(data).map(key => ({ id: key, ...data[key] }))
-                                   .sort((a, b) => a.timestamp - b.timestamp);
-
-        playersArray.forEach((player, index) => {
-            const li = document.createElement('li');
-            if (index < 14) {
-                li.innerHTML = `<span><b>${index+1}.</b> ${player.name}</span> <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
-                mainListEl.appendChild(li);
-            } else if (index < 24) {
-                li.className = "reserve-li";
-                li.innerHTML = `<span><b>${index-13}.</b> ${player.name}</span> <button class="btn-remove" onclick="removePlayer('${player.id}')">Usuń</button>`;
-                reserveListEl.appendChild(li);
-            }
-        });
-        document.getElementById('main-counter').innerText = `${Math.min(playersArray.length, 14)}/14`;
-        document.getElementById('reserve-counter').innerText = `${Math.max(0, Math.min(playersArray.length - 14, 10))}/10`;
-    });
-
-    function joinGame() {
-        const name = document.getElementById('nameInput').value.trim();
-        if (!name) return alert("Wpisz imię!");
-        playersRef.push({ name: name, timestamp: Date.now() });
-        document.getElementById('nameInput').value = "";
-    }
-
-    function removePlayer(key) {
-        if(confirm("Usunąć?")) db.ref('players/' + key).remove();
-    }
-</script>
-</body>
-</html>
+        const players = Object.keys(data).map(k => ({id:k, ...data
