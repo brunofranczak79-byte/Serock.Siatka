@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siatkówka Środa - Zapisy</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #1a73e8; text-align: center; margin-bottom: 5px; }
+        .info { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        .status { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
+        .open { background: #e6f4ea; color: #1e8e3e; }
+        .closed { background: #fce8e6; color: #d93025; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; }
+        .btn-join:disabled { background-color: #ccc; }
+        .list-header { border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px; display: flex; justify-content: space-between; }
+        ul { list-style: none; padding: 0; }
+        li { background: #f8f9fa; margin: 5px 0; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
+        .btn-remove { background: #ff4d4d; color: white; width: auto; padding: 5px 10px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏐 Siatkówka Środa</h2>
+    <p class="info">Mecz: 19:30 | Max: 12 osób</p>
+    <div id="status-box" class="status">Łączenie z bazą...</div>
+
+    <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
+    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
+
+    <div class="list-header">
+        <strong>Lista graczy:</strong>
+        <span id="counter">0/12</span>
+    </div>
+    <ul id="playerList"></ul>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+    // Twoja konfiguracja z Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
+        authDomain: "siatka-58398.firebaseapp.com",
+        databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com",
+        projectId: "siatka-58398",
+        storageBucket: "siatka-58398.firebasestorage.app",
+        messagingSenderId: "800028424106",
+        appId: "1:800028424106:web:e9ef944a3b8308505d5dd3"
+    };
+
+    // Inicjalizacja
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const playersRef = db.ref('players');
+    const maxPlayers = 12;
+
+    // Słuchanie zmian na żywo
+    playersRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        renderList(data);
+    });
+
+    function joinGame() {
+        const input = document.getElementById('nameInput');
+        const name = input.value.trim();
+        if (!name) return alert("Wpisz imię!");
+
+        playersRef.once('value', (snapshot
