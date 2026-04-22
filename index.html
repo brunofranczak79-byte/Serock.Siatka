@@ -9,43 +9,37 @@
             font-family: 'Segoe UI', sans-serif; 
             margin: 0; padding: 20px;
             display: flex; justify-content: center; align-items: center; min-height: 100vh;
-            /* TŁO Z TWOJEGO ZDJĘCIA + NIEBIESKI FILTR */
-            background-image: linear-gradient(rgba(0, 40, 120, 0.5), rgba(0, 40, 120, 0.5)), url('https://siatkowkaserock.github.io/Serock.Siatka/image_7.png');
-            background-size: cover; background-position: center; background-attachment: fixed;
+            background-color: #a3b1d6;
         }
         .container { 
-            background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px);
-            padding: 2rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.4);
-            width: 100%; max-width: 420px; text-align: center; border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+            padding: 2rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            width: 100%; max-width: 400px; text-align: center;
         }
-        h2 { color: #003399; margin-bottom: 20px; font-size: 1.8rem; }
-        .status { padding: 15px; border-radius: 12px; margin-bottom: 20px; font-weight: bold; font-size: 1.2rem; border: 2px solid; transition: 0.3s; }
-        .open { background: #e6f4ea; color: #1e8e3e; border-color: #1e8e3e; }
+        .status { padding: 15px; border-radius: 12px; margin-bottom: 20px; font-weight: bold; border: 2px solid #000; }
+        .open { background: #f0f0f0; color: #000; }
         .waiting { background: #fff4e5; color: #d84315; border-color: #ff9800; }
-        input { width: 100%; padding: 14px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; font-size: 1rem; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #1a73e8; color: white; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #1557b0; }
-        button:disabled { background: #999; cursor: not-allowed; transform: none; }
-        .timer { font-size: 1.6rem; color: #bf360c; margin-top: 8px; font-weight: 800; }
-        .list-header { border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px; margin-top: 20px; display: flex; justify-content: space-between; font-weight: bold; }
+        input { width: 100%; padding: 14px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #1a73e8; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #1a73e8; color: white; font-weight: bold; cursor: pointer; }
+        .timer { font-size: 1.5rem; color: #bf360c; font-weight: bold; }
+        .list-header { display: flex; justify-content: space-between; font-weight: bold; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
         ul { list-style: none; padding: 0; text-align: left; }
-        li { background: rgba(255,255,255,0.6); margin: 6px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(0,0,0,0.05); }
-        .btn-remove { background: #ff5252; padding: 6px 12px; font-size: 0.75rem; width: auto; border-radius: 6px; }
+        li { background: #fff; margin: 5px 0; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; border: 1px solid #eee; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏐 Siatkówka Serock</h2>
-    <div id="status-box" class="status">Łączenie...</div>
+    <h2 style="color: #003399;">🏐 Siatkówka Serock</h2>
+    <div id="status-box" class="status">Łączenie z bazą...</div>
     
-    <input type="text" id="nameInput" placeholder="Imię i Nazwisko">
+    <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
     <button id="joinBtn" onclick="joinGame()">Zapisz się</button>
     
-    <div class="list-header" style="color: #1a73e8;">SKŁAD (14) <span id="main-counter">0/14</span></div>
+    <div class="list-header" style="color: #1a73e8;">SKŁAD (MAX 14) <span id="main-counter">0/14</span></div>
     <ul id="mainList"></ul>
     
-    <div class="list-header" style="color: #e65100;">REZERWA <span id="reserve-counter">0/10</span></div>
+    <div class="list-header" style="color: #e65100;">REZERWA (MAX 10) <span id="reserve-counter">0/10</span></div>
     <ul id="reserveList"></ul>
 </div>
 
@@ -53,21 +47,22 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-    const firebaseConfig = { databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com" };
+    // Uproszczona konfiguracja
+    const firebaseConfig = {
+        databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com"
+    };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const playersRef = db.ref('players');
 
     function updateSystem() {
         const now = new Date();
-        const day = now.getDay(); // 0: Niedz, 3: Śr
+        const day = now.getDay(); 
         const h = now.getHours();
         const m = now.getMinutes();
 
-        // 1. Reset o 23:59 w każdą środę
-        if (day === 3 && h === 23 && m === 59 && now.getSeconds() === 0) playersRef.remove();
-
-        // 2. Warunek otwarcia: Niedziela 12:00 do Środy 19:30
+        // Okno: Niedziela 12:00 do Środy 19:30
         const isSunOpen = (day === 0 && h >= 12);
         const isMonTueOpen = (day === 1 || day === 2);
         const isWedOpen = (day === 3 && (h < 19 || (h === 19 && m < 30)));
@@ -82,7 +77,6 @@
             joinBtn.disabled = false;
         } else {
             statusBox.className = "status waiting";
-            // Cel: najbliższa niedziela 12:00
             let target = new Date();
             target.setDate(now.getDate() + (7 - day) % 7);
             target.setHours(12, 0, 0, 0);
@@ -102,6 +96,7 @@
     setInterval(updateSystem, 1000);
     updateSystem();
 
+    // Słuchanie bazy danych
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
         const mainL = document.getElementById('mainList');
@@ -114,4 +109,27 @@
             return;
         }
 
-        const players = Object.keys(data).map(k => ({id:k, ...data
+        const players = Object.keys(data).map(k => ({id:k, ...data[k]})).sort((a,b) => a.time - b.time);
+        players.forEach((p, i) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span><b>${i < 14 ? i+1 : i-13}.</b> ${p.name}</span> <button style="background:red; color:white; border:none; border-radius:4px; padding:2px 8px; cursor:pointer;" onclick="removePlayer('${p.id}')">X</button>`;
+            if (i < 14) mainL.appendChild(li);
+            else if (i < 24) resL.appendChild(li);
+        });
+        document.getElementById('main-counter').innerText = `${Math.min(players.length, 14)}/14`;
+        document.getElementById('reserve-counter').innerText = `${Math.max(0, Math.min(players.length-14, 10))}/10`;
+    });
+
+    function joinGame() {
+        const name = document.getElementById('nameInput').value.trim();
+        if (name) {
+            playersRef.push({name: name, time: Date.now()})
+                .then(() => { document.getElementById('nameInput').value = ""; })
+                .catch((err) => { alert("Błąd bazy danych! Sprawdź czy kliknąłeś 'Publish' w Firebase."); });
+        }
+    }
+
+    function removePlayer(id) { if(confirm("Usunąć?")) db.ref('players/'+id).remove(); }
+</script>
+</body>
+</html>
