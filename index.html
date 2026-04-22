@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siatkówka Środa - Zapisy</title>
+    <title>TEST - Siatkówka</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
         h2 { color: #1a73e8; text-align: center; margin-bottom: 5px; }
-        .info { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 20px; }
         .status { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
         .open { background: #e6f4ea; color: #1e8e3e; }
         .closed { background: #fce8e6; color: #d93025; }
         input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-join { background-color: #1a73e8; color: white; margin-bottom: 10px; }
-        .btn-join:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-join:disabled { background-color: #ccc; }
         .list-header { border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px; display: flex; justify-content: space-between; }
         ul { list-style: none; padding: 0; }
         li { background: #f8f9fa; margin: 5px 0; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
@@ -25,12 +24,12 @@
 <body>
 
 <div class="container">
-    <h2>🏐 Siatkówka Środa</h2>
-    <p class="info">Mecz: 19:30 | Max: 12 osób</p>
+    <h2>🏐 TEST ZAPISÓW</h2>
+    <p style="text-align:center; color:red;">Wersja bez blokady czasowej</p>
     <div id="status-box" class="status">Łączenie z bazą...</div>
 
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
-    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
+    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się testowo</button>
 
     <div class="list-header">
         <strong>Lista graczy:</strong>
@@ -43,7 +42,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-    // Twoja konfiguracja Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
         authDomain: "siatka-58398.firebaseapp.com",
@@ -54,19 +52,17 @@
         appId: "1:800028424106:web:e9ef944a3b8308505d5dd3"
     };
 
-    // Inicjalizacja Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const playersRef = db.ref('players');
     const maxPlayers = 12;
 
-    // Słuchanie zmian w bazie na żywo
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
         renderList(data);
     }, (error) => {
-        console.error("Błąd bazy:", error);
-        document.getElementById('status-box').innerText = "BŁĄD POŁĄCZENIA (Sprawdź Rules!)";
+        document.getElementById('status-box').innerText = "BŁĄD: Sprawdź Rules w Firebase!";
+        document.getElementById('status-box').className = "status closed";
     });
 
     function joinGame() {
@@ -76,23 +72,22 @@
 
         playersRef.once('value', (snapshot) => {
             const players = snapshot.val() ? Object.values(snapshot.val()) : [];
-            if (players.length >= maxPlayers) return alert("Brak wolnych miejsc!");
-            if (players.includes(name)) return alert("Już jesteś na liście!");
-
+            if (players.length >= maxPlayers) return alert("Brak miejsc!");
             playersRef.push(name);
             input.value = "";
         });
     }
 
     function removePlayer(key) {
-        if(confirm("Czy na pewno chcesz się wypisać?")) {
-            db.ref('players/' + key).remove();
-        }
+        db.ref('players/' + key).remove();
     }
 
     function renderList(data) {
         const listEl = document.getElementById('playerList');
         const counterEl = document.getElementById('counter');
+        const statusBox = document.getElementById('status-box');
+        const joinBtn = document.getElementById('joinBtn');
+        
         listEl.innerHTML = "";
         let count = 0;
 
@@ -100,42 +95,24 @@
             Object.keys(data).forEach((key) => {
                 count++;
                 const li = document.createElement('li');
-                li.innerHTML = `
-                    ${count}. ${data[key]}
-                    <button class="btn-remove" onclick="removePlayer('${key}')">Usuń</button>
-                `;
+                li.innerHTML = `${count}. ${data[key]} <button class="btn-remove" onclick="removePlayer('${key}')">Usuń</button>`;
                 listEl.appendChild(li);
             });
         }
 
         counterEl.innerText = `${count}/${maxPlayers}`;
-        checkStatus(count);
-    }
 
-    function checkStatus(count) {
-        const statusBox = document.getElementById('status-box');
-        const joinBtn = document.getElementById('joinBtn');
-        const now = new Date();
-        const day = now.getDay(); // 2 = wtorek, 3 = środa
-
-        // Zapisy otwarte we wtorek i w środę do 19:30
-        const isOpen = (day === 2 || (day === 3 && (now.getHours() < 19 || (now.getHours() === 19 && now.getMinutes() < 30))));
-
+        // TESTOWY STATUS - Zawsze otwarte
         if (count >= maxPlayers) {
             statusBox.innerText = "LISTA PEŁNA";
             statusBox.className = "status closed";
             joinBtn.disabled = true;
-        } else if (isOpen) {
-            statusBox.innerText = "Zapisy OTWARTE";
+        } else {
+            statusBox.innerText = "Zapisy TESTOWE (Otwarte)";
             statusBox.className = "status open";
             joinBtn.disabled = false;
-        } else {
-            statusBox.innerText = "Zapisy ZAMKNIĘTE (Zapraszamy we wtorek)";
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
         }
     }
 </script>
-
 </body>
 </html>
