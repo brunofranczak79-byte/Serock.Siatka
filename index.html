@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEST - Siatkówka</title>
+    <title>Siatkówka - Zapisy OTWARTE</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
@@ -24,12 +24,11 @@
 <body>
 
 <div class="container">
-    <h2>🏐 TEST ZAPISÓW</h2>
-    <p style="text-align:center; color:red;">Wersja bez blokady czasowej</p>
+    <h2>🏐 Siatkówka Serock</h2>
     <div id="status-box" class="status">Łączenie z bazą...</div>
 
     <input type="text" id="nameInput" placeholder="Twoje imię i nazwisko">
-    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się testowo</button>
+    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
 
     <div class="list-header">
         <strong>Lista graczy:</strong>
@@ -60,9 +59,6 @@
     playersRef.on('value', (snapshot) => {
         const data = snapshot.val();
         renderList(data);
-    }, (error) => {
-        document.getElementById('status-box').innerText = "BŁĄD: Sprawdź Rules w Firebase!";
-        document.getElementById('status-box').className = "status closed";
     });
 
     function joinGame() {
@@ -102,13 +98,13 @@
 
         counterEl.innerText = `${count}/${maxPlayers}`;
 
-        // TESTOWY STATUS - Zawsze otwarte
+        // TERAZ STATUS ZALEŻY TYLKO OD LICZBY OSÓB (BEZ ZEGARA)
         if (count >= maxPlayers) {
             statusBox.innerText = "LISTA PEŁNA";
             statusBox.className = "status closed";
             joinBtn.disabled = true;
         } else {
-            statusBox.innerText = "Zapisy TESTOWE (Otwarte)";
+            statusBox.innerText = "Zapisy OTWARTE";
             statusBox.className = "status open";
             joinBtn.disabled = false;
         }
