@@ -20,20 +20,21 @@
         }
 
         .container { 
-            background: rgba(255, 255, 255, 0.08); 
+            /* POPRAWIONA WIDOCZNOŚĆ KWADRATU */
+            background: rgba(255, 255, 255, 0.15); /* Zwiększona gęstość tła */
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             padding: 1.2rem;
             border-radius: 22px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
             width: 85%;
             max-width: 310px; 
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3); /* Mocniejsza krawędź */
             color: white;
             text-align: center;
         }
 
-        h2 { margin: 0 0 12px 0; font-size: 1.3rem; letter-spacing: 1px; }
+        h2 { margin: 0 0 12px 0; font-size: 1.3rem; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
         
         .status { 
             padding: 8px; 
@@ -41,23 +42,25 @@
             margin-bottom: 15px;
             font-weight: bold;
             font-size: 0.8rem;
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
         }
-        .open { background: rgba(40, 167, 69, 0.4); }
-        .closed { background: rgba(220, 53, 69, 0.4); }
+        .open { background: rgba(40, 167, 69, 0.5); }
+        .closed { background: rgba(220, 53, 69, 0.5); }
 
         input { 
             width: 100%; 
             padding: 10px; 
             margin-bottom: 8px; 
             border-radius: 10px; 
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.2); /* Lepiej widoczny input */
             color: white;
             box-sizing: border-box;
             font-size: 0.9rem;
             outline: none;
         }
+        input::placeholder { color: rgba(255,255,255,0.8); }
 
         .btn-join { 
             width: 100%; 
@@ -69,21 +72,92 @@
             font-weight: bold; 
             cursor: pointer;
             font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .btn-join:disabled { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); }
+        .btn-join:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); box-shadow: none; }
 
         .list-header { 
             display: flex; 
             justify-content: space-between; 
             margin-top: 15px; 
             font-size: 0.7rem; 
-            opacity: 0.6;
+            opacity: 0.9;
             font-weight: bold;
+            color: #ffeb3b; /* Kolor żółty dla lepszej widoczności nagłówków */
         }
 
         ul { list-style: none; padding: 0; text-align: left; margin: 5px 0; }
         li { 
-            background: rgba(255,255,255,0.07); 
-            margin: 3px 0; 
-            padding: 6px 10px; 
-            border-
+            background: rgba(255,255,255,0.12); 
+            margin: 4px 0; 
+            padding: 7px 10px; 
+            border-radius: 8px; 
+            display: flex; 
+            justify-content: space-between;
+            font-size: 0.85rem;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .btn-remove { background: #ff4d4d; border: none; color: white; border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 0.7rem; }
+        .timer { color: #ffeb3b; display: block; font-size: 1rem; margin-top: 3px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏐 SEROCK</h2>
+    <div id="status-box" class="status">Czekaj...</div>
+
+    <input type="text" id="nameInput" placeholder="Imię i Nazwisko">
+    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
+
+    <div class="list-header">SKŁAD <span id="main-counter">0/14</span></div>
+    <ul id="mainList"></ul>
+
+    <div class="list-header" style="color: #ffa726;">REZERWA <span id="reserve-counter">0/10</span></div>
+    <ul id="reserveList"></ul>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+    const firebaseConfig = { databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const playersRef = db.ref('players');
+
+    function updateSystem() {
+        const now = new Date();
+        const day = now.getDay(); 
+        const h = now.getHours();
+        const m = now.getMinutes();
+
+        if (day === 3 && h === 23 && m === 59 && now.getSeconds() === 0) playersRef.remove();
+
+        const isSunOpen = (day === 0 && h >= 12);
+        const isMonTueOpen = (day === 1 || day === 2);
+        const isWedOpen = (day === 3 && (h < 19 || (h === 19 && m < 30)));
+        const isOpen = isSunOpen || isMonTueOpen || isWedOpen;
+
+        const statusBox = document.getElementById('status-box');
+        const joinBtn = document.getElementById('joinBtn');
+
+        if (isOpen) {
+            statusBox.className = "status open";
+            statusBox.innerHTML = "ZAPISY OTWARTE";
+            joinBtn.disabled = false;
+        } else {
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
+
+            let target = new Date();
+            target.setDate(now.getDate() + (7 - day) % 7);
+            if (day === 0 && h >= 12) target.setDate(target.getDate() + 7);
+            target.setHours(12, 0, 0, 0);
+
+            const diff = target - now;
+            const d = Math.floor(diff / 86400000);
+            const hh = Math.floor((diff % 86400000) / 3600000);
+            const mm = Math.floor((diff % 3600000) / 60000);
+            const ss = Math
