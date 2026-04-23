@@ -3,40 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zapisy na Siatkówkę</title>
+    <title>Siatkówka Serock</title>
     <style>
-        body { font-family: sans-serif; background-color: #f0f0f0; display: flex; justify-content: center; padding-top: 40px; margin: 0; }
-        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        body { font-family: sans-serif; background-color: #f0f0f0; display: flex; justify-content: center; padding-top: 20px; margin: 0; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 300px; text-align: center; }
         
-        .status { padding: 10px; margin-bottom: 15px; border-radius: 5px; font-weight: bold; color: white; font-size: 14px; }
-        .open { background-color: #28a745; } /* Zielony */
-        .closed { background-color: #555; }   /* Ciemnoszary (zamiast czerwonego) */
+        .status { padding: 12px; margin-bottom: 15px; border-radius: 8px; font-weight: bold; color: white; min-height: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .open { background-color: #28a745; }
+        .closed { background-color: #444; }
         
-        input { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
-        button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
-        button:disabled { background-color: #ccc; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 6px; font-size: 16px; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
         
-        h4 { margin: 20px 0 5px 0; border-bottom: 1px solid #ccc; text-align: left; font-size: 12px; color: #666; padding-bottom: 3px; }
+        h4 { margin: 20px 0 8px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #555; padding-bottom: 5px; display: flex; justify-content: space-between; }
         ul { list-style: none; padding: 0; text-align: left; margin: 0; }
-        li { background: #f9f9f9; margin: 5px 0; padding: 8px; display: flex; justify-content: space-between; border-radius: 3px; font-size: 14px; border: 1px solid #eee; }
+        li { background: #fdfdfd; margin: 4px 0; padding: 10px; display: flex; justify-content: space-between; border-radius: 6px; font-size: 14px; border: 1px solid #eee; align-items: center; }
         
-        .remove-btn { background: #ff4d4d; color: white; border: none; padding: 2px 6px; cursor: pointer; font-size: 11px; border-radius: 3px; }
-        .timer { font-size: 14px; display: block; margin-top: 5px; color: #ffeb3b; } /* Żółty licznik na ciemnym tle */
+        .remove-btn { background: #ff4d4d; color: white; border: none; padding: 4px 8px; cursor: pointer; font-size: 11px; border-radius: 4px; }
+        .timer { font-size: 16px; color: #ffeb3b; margin-top: 4px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="margin-top:0;">🏐 Siatkówka</h2>
+    <h2 style="margin: 0 0 15px 0;">🏐 Siatkówka</h2>
     <div id="statusBox" class="status">Ładowanie...</div>
     
     <input type="text" id="nameInput" placeholder="Imię i nazwisko">
     <button id="joinBtn" onclick="join()">Zapisz się</button>
 
-    <h4>SKŁAD <span id="count1" style="float:right">0/14</span></h4>
+    <h4>SKŁAD <span id="count1">0/14</span></h4>
     <ul id="list1"></ul>
 
-    <h4>REZERWA <span id="count2" style="float:right">0/10</span></h4>
+    <h4>REZERWA <span id="count2">0/10</span></h4>
     <ul id="list2"></ul>
 </div>
 
@@ -44,28 +44,33 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    // Konfiguracja Twojej bazy
-    const config = { databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com" };
-    firebase.initializeApp(config);
+    // WAŻNE: Tu wklej swoje pełne dane z Firebase (Project Settings -> Your Apps)
+    const firebaseConfig = {
+        databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    function updateStatus() {
+    function updateClock() {
         const teraz = new Date();
-        const dzien = teraz.getDay(); 
+        const dzien = teraz.getDay(); // 0-niedz, 1-pon, 2-wt, 3-śr...
         const h = teraz.getHours();
         const m = teraz.getMinutes();
+        const s = teraz.getSeconds();
 
-        // 1. Reset listy: Środa 23:59:00
-        if(dzien === 3 && h === 23 && m === 59 && teraz.getSeconds() === 0) {
+        // 1. Automatyczny Reset w Środę o 23:59:59
+        if(dzien === 3 && h === 23 && m === 59 && s === 59) {
             db.remove();
         }
 
-        // 2. Logika otwarcia (Niedz 12:00 - Środa 19:30)
+        // 2. Kiedy zapisy są otwarte? (Niedz 12:00 do Środa 19:30)
         const otwarteNiedz = (dzien === 0 && h >= 12);
         const otwartePonWt = (dzien === 1 || dzien === 2);
         const otwarteSroda = (dzien === 3 && (h < 19 || (h === 19 && m < 30)));
         
         const isOpen = otwarteNiedz || otwartePonWt || otwarteSroda;
+        
         const box = document.getElementById('statusBox');
         const btn = document.getElementById('joinBtn');
 
@@ -77,29 +82,35 @@
             box.className = "status closed";
             btn.disabled = true;
 
-            // Odliczanie do niedzieli 12:00
+            // Obliczanie czasu do niedzieli 12:00
             let cel = new Date();
-            cel.setDate(teraz.getDate() + (7 - dzien) % 7);
-            if(dzien === 0 && h >= 12) cel.setDate(cel.getDate() + 7);
+            let dniDoNiedzieli = (7 - dzien) % 7;
+            if (dzien === 0 && h >= 12) dniDoNiedzieli = 7;
+            
+            cel.setDate(teraz.getDate() + dniDoNiedzieli);
             cel.setHours(12, 0, 0, 0);
 
             const roznica = cel - teraz;
-            const d = Math.floor(roznica / 86400000);
-            const hh = Math.floor((roznica % 86400000) / 3600000);
-            const mm = Math.floor((roznica % 3600000) / 60000);
-            box.innerHTML = `ZAPISY RUSZAJĄ ZA:<br><span class="timer">${d}d ${hh}h ${mm}m</span>`;
+            const d = Math.floor(roznica / (1000 * 60 * 60 * 24));
+            const hh = Math.floor((roznica / (1000 * 60 * 60)) % 24);
+            const mm = Math.floor((roznica / (1000 * 60)) % 60);
+            const ss = Math.floor((roznica / 1000) % 60);
+
+            box.innerHTML = `ZAPISY RUSZAJĄ ZA:<br><span class="timer">${d}d ${hh}h ${mm}m ${ss}s</span>`;
         }
     }
 
-    setInterval(updateStatus, 1000);
-    updateStatus();
+    // Odświeżaj co 1 sekundę
+    setInterval(updateClock, 1000);
+    updateClock();
 
     function join() {
         const input = document.getElementById('nameInput');
         const nazwa = input.value.trim();
         if(nazwa !== "") {
-            db.push({ name: nazwa, ts: Date.now() });
-            input.value = "";
+            db.push({ name: nazwa, ts: Date.now() })
+                .then(() => { input.value = ""; })
+                .catch(err => alert("Błąd bazy: " + err.message));
         }
     }
 
@@ -113,21 +124,6 @@
         
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${i+1}. ${p.name}</span> <button class="remove-btn" onclick="removeP('${p.id}')">X</button>`;
+            li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> <button class="remove-btn" onclick="removeP('${p.id}')">X</button>`;
             if(i < 14) l1.appendChild(li);
             else if(i < 24) l2.appendChild(li);
-        });
-
-        document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
-        document.getElementById('count2').innerText = Math.max(0, Math.min(players.length - 14, 10)) + "/10";
-    });
-
-    function removeP(id) {
-        if(confirm("Czy na pewno chcesz się wypisać?")) {
-            firebase.database().ref('players/' + id).remove();
-        }
-    }
-</script>
-
-</body>
-</html>
