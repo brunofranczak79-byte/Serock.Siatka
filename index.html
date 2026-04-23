@@ -20,86 +20,85 @@
         }
 
         .container { 
-            /* POPRAWIONA WIDOCZNOŚĆ KWADRATU */
-            background: rgba(255, 255, 255, 0.15); /* Zwiększona gęstość tła */
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 1.2rem;
-            border-radius: 22px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            /* TERAZ KWADRAT JEST WYRAŹNIEJSZY */
+            background: rgba(0, 0, 0, 0.5); /* Ciemniejsze tło dla kontrastu */
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8);
             width: 85%;
             max-width: 310px; 
-            border: 1px solid rgba(255, 255, 255, 0.3); /* Mocniejsza krawędź */
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
             text-align: center;
         }
 
-        h2 { margin: 0 0 12px 0; font-size: 1.3rem; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+        h2 { margin: 0 0 15px 0; font-size: 1.4rem; letter-spacing: 1px; color: #fff; }
         
         .status { 
-            padding: 8px; 
+            padding: 10px; 
             border-radius: 12px; 
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             font-weight: bold;
-            font-size: 0.8rem;
-            border: 1px solid rgba(255,255,255,0.3);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            font-size: 0.85rem;
+            border: 1px solid rgba(255,255,255,0.2);
         }
-        .open { background: rgba(40, 167, 69, 0.5); }
-        .closed { background: rgba(220, 53, 69, 0.5); }
+        .open { background: rgba(40, 167, 69, 0.6); }
+        .closed { background: rgba(220, 53, 69, 0.6); }
 
         input { 
             width: 100%; 
-            padding: 10px; 
-            margin-bottom: 8px; 
+            padding: 12px; 
+            margin-bottom: 10px; 
             border-radius: 10px; 
             border: 1px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.2); /* Lepiej widoczny input */
+            background: rgba(255,255,255,0.15);
             color: white;
             box-sizing: border-box;
-            font-size: 0.9rem;
+            font-size: 1rem;
             outline: none;
         }
-        input::placeholder { color: rgba(255,255,255,0.8); }
+        input::placeholder { color: rgba(255,255,255,0.6); }
 
         .btn-join { 
             width: 100%; 
-            padding: 10px; 
+            padding: 12px; 
             background: #1a73e8; 
             color: white; 
             border: none; 
             border-radius: 10px; 
             font-weight: bold; 
             cursor: pointer;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-size: 1rem;
+            transition: 0.2s;
         }
-        .btn-join:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); box-shadow: none; }
+        .btn-join:active { transform: scale(0.98); }
+        .btn-join:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; }
 
         .list-header { 
             display: flex; 
             justify-content: space-between; 
             margin-top: 15px; 
-            font-size: 0.7rem; 
-            opacity: 0.9;
+            font-size: 0.75rem; 
             font-weight: bold;
-            color: #ffeb3b; /* Kolor żółty dla lepszej widoczności nagłówków */
+            color: #ffeb3b;
+            text-transform: uppercase;
         }
 
-        ul { list-style: none; padding: 0; text-align: left; margin: 5px 0; }
+        ul { list-style: none; padding: 0; text-align: left; margin: 8px 0; }
         li { 
-            background: rgba(255,255,255,0.12); 
-            margin: 4px 0; 
-            padding: 7px 10px; 
+            background: rgba(255,255,255,0.1); 
+            margin: 5px 0; 
+            padding: 8px 12px; 
             border-radius: 8px; 
             display: flex; 
             justify-content: space-between;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             align-items: center;
-            border: 1px solid rgba(255,255,255,0.05);
         }
-        .btn-remove { background: #ff4d4d; border: none; color: white; border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 0.7rem; }
-        .timer { color: #ffeb3b; display: block; font-size: 1rem; margin-top: 3px; font-weight: bold; }
+        .btn-remove { background: #ff4d4d; border: none; color: white; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 0.7rem; }
+        .timer { color: #ffeb3b; display: block; font-size: 1.1rem; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -122,42 +121,4 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    const firebaseConfig = { databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com" };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const playersRef = db.ref('players');
-
-    function updateSystem() {
-        const now = new Date();
-        const day = now.getDay(); 
-        const h = now.getHours();
-        const m = now.getMinutes();
-
-        if (day === 3 && h === 23 && m === 59 && now.getSeconds() === 0) playersRef.remove();
-
-        const isSunOpen = (day === 0 && h >= 12);
-        const isMonTueOpen = (day === 1 || day === 2);
-        const isWedOpen = (day === 3 && (h < 19 || (h === 19 && m < 30)));
-        const isOpen = isSunOpen || isMonTueOpen || isWedOpen;
-
-        const statusBox = document.getElementById('status-box');
-        const joinBtn = document.getElementById('joinBtn');
-
-        if (isOpen) {
-            statusBox.className = "status open";
-            statusBox.innerHTML = "ZAPISY OTWARTE";
-            joinBtn.disabled = false;
-        } else {
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-
-            let target = new Date();
-            target.setDate(now.getDate() + (7 - day) % 7);
-            if (day === 0 && h >= 12) target.setDate(target.getDate() + 7);
-            target.setHours(12, 0, 0, 0);
-
-            const diff = target - now;
-            const d = Math.floor(diff / 86400000);
-            const hh = Math.floor((diff % 86400000) / 3600000);
-            const mm = Math.floor((diff % 3600000) / 60000);
-            const ss = Math
+    const firebaseConfig = { databaseURL: "https://siatka
