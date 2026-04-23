@@ -9,13 +9,12 @@
         .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 320px; text-align: center; }
         .status { padding: 12px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; min-height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #28a745; }
         input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
-        input:focus { border-color: #1a73e8; }
         button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; font-size: 16px; }
-        button:disabled { background-color: #ccc; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
         h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #666; display: flex; justify-content: space-between; padding-bottom: 5px; }
         ul { list-style: none; padding: 0; text-align: left; margin: 0; }
         li { background: #f9f9f9; margin: 5px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
-        .del-btn { background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
         .info { font-size: 11px; color: #888; margin-top: 15px; line-height: 1.4; }
     </style>
 </head>
@@ -44,41 +43,32 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    // === TWOJE DANE FIREBASE (UZUPEŁNIJ!) ===
+    // Twoje dane z Firebase (uzupełnione na podstawie Twoich zdjęć)
     const firebaseConfig = {
-        apiKey: "TWOJE_API_KEY",
+        apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
         authDomain: "siatka-58398.firebaseapp.com",
         databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com",
         projectId: "siatka-58398",
-        storageBucket: "siatka-58398.appspot.com",
-        messagingSenderId: "TWOJE_ID",
-        appId: "TWOJE_APP_ID"
+        storageBucket: "siatka-58398.firebasestorage.app",
+        messagingSenderId: "800028424106",
+        appId: "1:800028424106:web:e9ef944a3b8308505d5dd3"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    // --- FUNKCJA AUTOMATYCZNEGO RESETU ---
+    // Automatyczny reset: Czwartek 20:20
     function checkAutoReset() {
         const teraz = new Date();
-        const dzien = teraz.getDay(); // 4 = czwartek
-        const godzina = teraz.getHours();
-        const minuta = teraz.getMinutes();
-
-        // Jeśli jest czwartek, 20:20
-        if (dzien === 4 && godzina === 20 && minuta === 20) {
-            const resetKey = "reset_" + teraz.toDateString() + "_2020";
-            // Sprawdzamy czy reset nie został już zrobiony w tej konkretnej minucie
-            if (localStorage.getItem('lastResetKey') !== resetKey) {
+        if (teraz.getDay() === 4 && teraz.getHours() === 20 && teraz.getMinutes() === 20) {
+            const key = "reset_" + teraz.toDateString() + "_2020";
+            if (localStorage.getItem('lastResetDone') !== key) {
                 db.remove();
                 localStorage.removeItem('myVoleyballId');
-                localStorage.setItem('lastResetKey', resetKey);
-                console.log("Lista wyzerowana o 20:20");
+                localStorage.setItem('lastResetDone', key);
             }
         }
     }
-
-    // Sprawdzaj co 30 sekund czy nie nadszedł czas resetu
     setInterval(checkAutoReset, 30000);
 
     function join() {
@@ -86,50 +76,42 @@
         const nazwa = input.value.trim();
         
         if(localStorage.getItem('myVoleyballId')) {
-            alert("Jesteś już na liście!");
+            alert("Już jesteś na liście!");
             return;
         }
-
         if(nazwa.length < 3) {
-            alert("Wpisz poprawne imię i nazwisko.");
+            alert("Wpisz imię i nazwisko.");
             return;
         }
 
         db.once('value', snap => {
-            const currentCount = snap.numChildren();
-            if(currentCount >= 24) {
-                alert("Brak wolnych miejsc (max 24)!");
+            if(snap.numChildren() >= 24) {
+                alert("Lista pełna!");
                 return;
             }
-
-            const newPlayerRef = db.push();
-            const playerKey = newPlayerRef.key;
-            
-            newPlayerRef.set({ name: nazwa, ts: Date.now() }).then(() => {
-                localStorage.setItem('myVoleyballId', playerKey);
+            const nowy = db.push();
+            nowy.set({ name: nazwa, ts: Date.now() }).then(() => {
+                localStorage.setItem('myVoleyballId', nowy.key);
                 input.value = "";
             });
         });
     }
 
     function removeMe(id) {
-        if(confirm("Czy na pewno chcesz się wypisać?")) {
+        if(confirm("Wypisać się?")) {
             db.child(id).remove().then(() => {
                 localStorage.removeItem('myVoleyballId');
             });
         }
     }
 
-    // Słuchanie zmian w bazie i aktualizacja widoku
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
-        const myId = localStorage.getItem('myVoleyballId');
+        const mojeId = localStorage.getItem('myVoleyballId');
         
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
         
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            let content = `<span><b>
+        players.forEach
