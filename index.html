@@ -7,27 +7,35 @@
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 30px; margin: 0; }
         .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 320px; text-align: center; }
-        .status { padding: 12px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; min-height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #666; }
-        .open { background-color: #28a745 !important; }
-        .closed { background-color: #444 !important; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
-        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; }
+        .status { padding: 12px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; min-height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #28a745; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
+        input:focus { border-color: #1a73e8; }
+        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; font-size: 16px; }
         button:disabled { background-color: #ccc; }
-        h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #666; display: flex; justify-content: space-between; }
+        h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #666; display: flex; justify-content: space-between; padding-bottom: 5px; }
         ul { list-style: none; padding: 0; text-align: left; margin: 0; }
-        li { background: #f9f9f9; margin: 5px 0; padding: 10px; display: flex; justify-content: space-between; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
-        .timer { font-size: 16px; color: #ffeb3b; margin-top: 5px; }
+        li { background: #f9f9f9; margin: 5px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .info { font-size: 11px; color: #888; margin-top: 15px; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🏐 Siatkówka</h2>
-    <div id="statusBox" class="status">Inicjalizacja...</div>
+    <div id="statusBox" class="status">ZAPISY OTWARTE</div>
+    
     <input type="text" id="nameInput" placeholder="Imię i nazwisko">
     <button id="joinBtn" onclick="join()">Zapisz się</button>
+    
+    <div class="info">
+        Zapisy są zawsze dostępne.<br>
+        Lista czyści się w czwartki o 20:20.
+    </div>
+
     <h4>SKŁAD <span id="count1">0/14</span></h4>
     <ul id="list1"></ul>
+    
     <h4>REZERWA <span id="count2">0/10</span></h4>
     <ul id="list2"></ul>
 </div>
@@ -36,7 +44,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    // === TUTAJ WKLEJ SWOJE DANE Z FIREBASE ===
+    // === TWOJE DANE FIREBASE (UZUPEŁNIJ!) ===
     const firebaseConfig = {
         apiKey: "TWOJE_API_KEY",
         authDomain: "siatka-58398.firebaseapp.com",
@@ -46,73 +54,82 @@
         messagingSenderId: "TWOJE_ID",
         appId: "TWOJE_APP_ID"
     };
-    // =========================================
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    function updateSystem() {
+    // --- FUNKCJA AUTOMATYCZNEGO RESETU ---
+    function checkAutoReset() {
         const teraz = new Date();
-        const dzien = teraz.getDay(); 
-        const h = teraz.getHours();
-        const m = teraz.getMinutes();
+        const dzien = teraz.getDay(); // 4 = czwartek
+        const godzina = teraz.getHours();
+        const minuta = teraz.getMinutes();
 
-        const otwarteNiedz = (dzien === 0 && h >= 12);
-        const otwartePonWt = (dzien === 1 || dzien === 2);
-        const otwarteSroda = (dzien === 3 && (h < 19 || (h === 19 && m < 30)));
-        const isOpen = otwarteNiedz || otwartePonWt || otwarteSroda;
-        
-        const box = document.getElementById('statusBox');
-        const btn = document.getElementById('joinBtn');
-
-        if(isOpen) {
-            box.className = "status open";
-            box.innerHTML = "ZAPISY OTWARTE";
-            btn.disabled = false;
-        } else {
-            box.className = "status closed";
-            btn.disabled = true;
-            let cel = new Date();
-            let dniDoNiedzieli = (7 - dzien) % 7;
-            if (dzien === 0 && h >= 12) dniDoNiedzieli = 7;
-            cel.setDate(teraz.getDate() + dniDoNiedzieli);
-            cel.setHours(12, 0, 0, 0);
-            const roznica = cel - teraz;
-            const d = Math.floor(roznica / 86400000);
-            const hh = Math.floor((roznica % 86400000) / 3600000);
-            const mm = Math.floor((roznica % 3600000) / 60000);
-            const ss = Math.floor((roznica % 60000) / 1000);
-            box.innerHTML = `ZAPISY RUSZAJĄ ZA:<br><span class="timer">${d}d ${hh}h ${mm}m ${ss}s</span>`;
+        // Jeśli jest czwartek, 20:20
+        if (dzien === 4 && godzina === 20 && minuta === 20) {
+            const resetKey = "reset_" + teraz.toDateString() + "_2020";
+            // Sprawdzamy czy reset nie został już zrobiony w tej konkretnej minucie
+            if (localStorage.getItem('lastResetKey') !== resetKey) {
+                db.remove();
+                localStorage.removeItem('myVoleyballId');
+                localStorage.setItem('lastResetKey', resetKey);
+                console.log("Lista wyzerowana o 20:20");
+            }
         }
     }
 
-    setInterval(updateSystem, 1000);
-    updateSystem();
+    // Sprawdzaj co 30 sekund czy nie nadszedł czas resetu
+    setInterval(checkAutoReset, 30000);
 
     function join() {
         const input = document.getElementById('nameInput');
         const nazwa = input.value.trim();
-        if(nazwa) {
-            db.push({ name: nazwa, ts: Date.now() });
-            input.value = "";
+        
+        if(localStorage.getItem('myVoleyballId')) {
+            alert("Jesteś już na liście!");
+            return;
+        }
+
+        if(nazwa.length < 3) {
+            alert("Wpisz poprawne imię i nazwisko.");
+            return;
+        }
+
+        db.once('value', snap => {
+            const currentCount = snap.numChildren();
+            if(currentCount >= 24) {
+                alert("Brak wolnych miejsc (max 24)!");
+                return;
+            }
+
+            const newPlayerRef = db.push();
+            const playerKey = newPlayerRef.key;
+            
+            newPlayerRef.set({ name: nazwa, ts: Date.now() }).then(() => {
+                localStorage.setItem('myVoleyballId', playerKey);
+                input.value = "";
+            });
+        });
+    }
+
+    function removeMe(id) {
+        if(confirm("Czy na pewno chcesz się wypisać?")) {
+            db.child(id).remove().then(() => {
+                localStorage.removeItem('myVoleyballId');
+            });
         }
     }
 
+    // Słuchanie zmian w bazie i aktualizacja widoku
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
+        const myId = localStorage.getItem('myVoleyballId');
+        
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
+        
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${i+1}. ${p.name}</span>`;
-            if(i < 14) l1.appendChild(li);
-            else if(i < 24) l2.appendChild(li);
-        });
-        document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
-        document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
-    });
-</script>
-</body>
-</html>
+            let content = `<span><b>
