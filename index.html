@@ -20,7 +20,6 @@
         }
 
         .container { 
-            /* ZMNIEJSZONY I BARDZIEJ PRZEZROCZYSTY */
             background: rgba(255, 255, 255, 0.08); 
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -28,7 +27,7 @@
             border-radius: 22px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             width: 85%;
-            max-width: 310px; /* Jeszcze mniejszy kwadracik */
+            max-width: 310px; 
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: white;
             text-align: center;
@@ -71,135 +70,4 @@
             cursor: pointer;
             font-size: 0.9rem;
         }
-        .btn-join:disabled { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); }
-
-        .list-header { 
-            display: flex; 
-            justify-content: space-between; 
-            margin-top: 15px; 
-            font-size: 0.7rem; 
-            opacity: 0.6;
-            font-weight: bold;
-        }
-
-        ul { list-style: none; padding: 0; text-align: left; margin: 5px 0; }
-        li { 
-            background: rgba(255,255,255,0.07); 
-            margin: 3px 0; 
-            padding: 6px 10px; 
-            border-radius: 8px; 
-            display: flex; 
-            justify-content: space-between;
-            font-size: 0.8rem;
-            align-items: center;
-        }
-        .btn-remove { background: #ff4d4d; border: none; color: white; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.65rem; }
-        .timer { color: #ffc107; display: block; font-size: 0.9rem; margin-top: 3px; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h2>🏐 SEROCK</h2>
-    <div id="status-box" class="status">Czekaj...</div>
-
-    <input type="text" id="nameInput" placeholder="Imię i Nazwisko">
-    <button id="joinBtn" class="btn-join" onclick="joinGame()">Zapisz się</button>
-
-    <div class="list-header">SKŁAD <span id="main-counter">0/14</span></div>
-    <ul id="mainList"></ul>
-
-    <div class="list-header">REZERWA <span id="reserve-counter">0/10</span></div>
-    <ul id="reserveList"></ul>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-<script>
-    const firebaseConfig = { databaseURL: "https://siatka-58398-default-rtdb.firebaseio.com" };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const playersRef = db.ref('players');
-
-    function updateSystem() {
-        const now = new Date();
-        const day = now.getDay(); 
-        const h = now.getHours();
-        const m = now.getMinutes();
-
-        // Reset listy: Środa 23:59
-        if (day === 3 && h === 23 && m === 59 && now.getSeconds() === 0) playersRef.remove();
-
-        // Otwarcie: Niedz 12:00 - Środa 19:30
-        const isSunOpen = (day === 0 && h >= 12);
-        const isMonTueOpen = (day === 1 || day === 2);
-        const isWedOpen = (day === 3 && (h < 19 || (h === 19 && m < 30)));
-        const isOpen = isSunOpen || isMonTueOpen || isWedOpen;
-
-        const statusBox = document.getElementById('status-box');
-        const joinBtn = document.getElementById('joinBtn');
-
-        if (isOpen) {
-            statusBox.className = "status open";
-            statusBox.innerHTML = "ZAPISY OTWARTE";
-            joinBtn.disabled = false;
-        } else {
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-
-            let target = new Date();
-            target.setDate(now.getDate() + (7 - day) % 7);
-            if (day === 0 && h >= 12) target.setDate(target.getDate() + 7);
-            target.setHours(12, 0, 0, 0);
-
-            const diff = target - now;
-            const d = Math.floor(diff / 86400000);
-            const hh = Math.floor((diff % 86400000) / 3600000);
-            const mm = Math.floor((diff % 3600000) / 60000);
-            const ss = Math.floor((diff % 60000) / 1000);
-
-            statusBox.innerHTML = `MECZ TRWA<br><span class="timer">${d}d ${hh}h ${mm}m ${ss}s</span>`;
-        }
-    }
-
-    setInterval(updateSystem, 1000);
-    updateSystem();
-
-    function joinGame() {
-        const name = document.getElementById('nameInput').value.trim();
-        if (name) {
-            playersRef.push({ name: name, time: Date.now() });
-            document.getElementById('nameInput').value = "";
-        }
-    }
-
-    playersRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        const mainL = document.getElementById('mainList');
-        const resL = document.getElementById('reserveList');
-        mainL.innerHTML = ""; resL.innerHTML = "";
-        
-        if (!data) {
-            document.getElementById('main-counter').innerText = "0/14";
-            document.getElementById('reserve-counter').innerText = "0/10";
-            return;
-        }
-
-        const players = Object.keys(data).map(k => ({id:k, ...data[k]})).sort((a,b) => a.time - b.time);
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            li.innerHTML = `<span>${i + 1}. ${p.name}</span> <button class="btn-remove" onclick="removePlayer('${p.id}')">X</button>`;
-            if (i < 14) mainL.appendChild(li);
-            else if (i < 24) resL.appendChild(li);
-        });
-        document.getElementById('main-counter').innerText = `${Math.min(players.length, 14)}/14`;
-        document.getElementById('reserve-counter').innerText = `${Math.max(0, players.length - 14)}/10`;
-    });
-
-    function removePlayer(id) {
-        if(confirm("Usunąć?")) db.ref('players/' + id).remove();
-    }
-</script>
-</body>
-</html>
+        .btn-join:disabled { background: rgba(255,255,2
