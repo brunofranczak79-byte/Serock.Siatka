@@ -55,31 +55,41 @@
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
 
-        if (name === "admin123") {
-            localStorage.setItem('is_admin', 'true');
-            location.reload(); return;
-        }
-        if (name === "admin1234") {
-            localStorage.clear();
-            location.reload(); return;
-        }
+        // Obsługa haseł
+        if (name === "admin123") { localStorage.setItem('is_admin', 'true'); location.reload(); return; }
+        if (name === "admin1234") { localStorage.clear(); location.reload(); return; }
+        if (name.length < 3) return alert("Wpisz pełne imię!");
 
-        if (name.length < 3) return alert("Wpisz imię!");
+        // SPRAWDZANIE CZY IMIĘ JUŻ JEST W BAZIE
+        db.once('value').then(snap => {
+            const data = snap.val();
+            const players = data ? Object.values(data) : [];
+            
+            // Jeśli nie jesteś adminem, sprawdź czy imię się powtarza
+            const exists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
+            
+            if (exists && localStorage.getItem('is_admin') !== 'true') {
+                alert("Osoba o tym imieniu jest już na liście!");
+                return;
+            }
 
-        db.push().set({ name: name, ts: Date.now() }).then(() => {
-            localStorage.setItem('voley_name', name);
-            input.value = "";
+            // Jeśli nie istnieje, zapisz
+            db.push().set({ name: name, ts: Date.now() }).then(() => {
+                localStorage.setItem('voley_name', name);
+                input.value = "";
+            });
         });
     }
 
     function removePlayer(id) {
-        if (confirm("Usunąć?")) db.child(id).remove();
+        if (confirm("Usunąć ten wpis?")) db.child(id).remove();
     }
 
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
+        const currentInputValue = document.getElementById('nameInput').value.trim();
         const mySavedName = localStorage.getItem('voley_name');
         const isAdmin = localStorage.getItem('is_admin') === 'true';
         
@@ -90,8 +100,15 @@
 
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            // ZASADA: Przycisk usuń pokaże się jeśli Imię pasuje LUB jesteś adminem
-            let btn = (isAdmin || p.name === mySavedName) ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
+            
+            // PRZYCISK USUŃ: Pokaże się gdy:
+            // 1. Jesteś adminem
+            // 2. To Twoje zapamiętane imię
+            // 3. Wpisałeś właśnie to imię w pole tekstowe (ratunek gdy czyścisz ciasteczka)
+            let btn = "";
+            if (isAdmin || p.name === mySavedName || p.name === currentInputValue) {
+                btn = `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>`;
+            }
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
             if (i < 14) l1.appendChild(li); else l2.appendChild(li);
