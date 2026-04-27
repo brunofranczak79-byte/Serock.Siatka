@@ -7,14 +7,17 @@
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 20px; margin: 0; }
         .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 100%; max-width: 340px; text-align: center; }
-        .status { padding: 10px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; background-color: #28a745; }
+        .status { padding: 10px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+        .open { background-color: #28a745; }
+        .closed { background-color: #444; }
         input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
         button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; }
-        h4 { margin: 20px 0 10px 0; border-bottom: 1px solid #eee; text-align: left; display: flex; justify-content: space-between; }
-        ul { list-style: none; padding: 0; text-align: left; }
-        li { background: #fdfdfd; margin-bottom: 5px; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; border: 1px solid #eee; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        h4 { margin: 20px 0 10px 0; border-bottom: 1px solid #eee; text-align: left; display: flex; justify-content: space-between; font-size: 14px; color: #666; }
+        ul { list-style: none; padding: 0; text-align: left; margin: 0; }
+        li { background: #fdfdfd; margin-bottom: 5px; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; border: 1px solid #eee; font-size: 15px; }
         .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-        .admin-badge { background: #ffc107; color: black; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 10px; display: none; }
+        .admin-badge { background: #ffc107; color: black; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 10px; display: none; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -22,7 +25,7 @@
 <div class="container">
     <h2>🏐 Siatkówka</h2>
     <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA</div>
-    <div id="statusBox" class="status">ZAPISY OTWARTE</div>
+    <div id="statusBox" class="status">Ładowanie...</div>
     
     <input type="text" id="nameInput" placeholder="Twoje Imię i Nazwisko">
     <button id="joinBtn" onclick="join()">Zapisz się</button>
@@ -51,29 +54,62 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
+    function checkTime() {
+        const now = new Date();
+        const day = now.getDay(); // 0-Nd, 1-Pn, ..., 4-Czw
+        const hour = now.getHours();
+        const min = now.getMinutes();
+        const isAdmin = localStorage.getItem('is_admin') === 'true';
+
+        // Otwarcie: Niedziela 10:00
+        const isSundayOpen = (day === 0 && hour >= 10);
+        const isWeekOpen = (day >= 1 && day <= 3);
+        // Koniec: Czwartek 19:30
+        const isThursdayOpen = (day === 4 && (hour < 19 || (hour === 19 && min < 30)));
+
+        const isOpen = isSundayOpen || isWeekOpen || isThursdayOpen;
+        const statusBox = document.getElementById('statusBox');
+        const joinBtn = document.getElementById('joinBtn');
+
+        if (isOpen || isAdmin) {
+            statusBox.innerText = "ZAPISY OTWARTE";
+            statusBox.className = "status open";
+            joinBtn.disabled = false;
+        } else {
+            statusBox.innerText = "ZAPISY ZAMKNIĘTE";
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
+        }
+
+        // RESET: Czwartek 22:00 (19:30 + 2,5h)
+        if (day === 4 && hour === 22 && min === 0) {
+            db.remove();
+            localStorage.removeItem('voley_name');
+        }
+
+        if(isAdmin) document.getElementById('adminMode').style.display = "block";
+    }
+
+    setInterval(checkTime, 10000);
+    checkTime();
+
     function join() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
 
-        // Obsługa haseł
         if (name === "admin123") { localStorage.setItem('is_admin', 'true'); location.reload(); return; }
         if (name === "admin1234") { localStorage.clear(); location.reload(); return; }
         if (name.length < 3) return alert("Wpisz pełne imię!");
 
-        // SPRAWDZANIE CZY IMIĘ JUŻ JEST W BAZIE
         db.once('value').then(snap => {
-            const data = snap.val();
-            const players = data ? Object.values(data) : [];
-            
-            // Jeśli nie jesteś adminem, sprawdź czy imię się powtarza
+            const players = snap.val() ? Object.values(snap.val()) : [];
             const exists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
             
             if (exists && localStorage.getItem('is_admin') !== 'true') {
-                alert("Osoba o tym imieniu jest już na liście!");
+                alert("Jesteś już na liście!");
                 return;
             }
 
-            // Jeśli nie istnieje, zapisz
             db.push().set({ name: name, ts: Date.now() }).then(() => {
                 localStorage.setItem('voley_name', name);
                 input.value = "";
@@ -82,33 +118,24 @@
     }
 
     function removePlayer(id) {
-        if (confirm("Usunąć ten wpis?")) db.child(id).remove();
+        if (confirm("Usunąć?")) db.child(id).remove();
     }
 
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
-        const currentInputValue = document.getElementById('nameInput').value.trim();
-        const mySavedName = localStorage.getItem('voley_name');
+        const myName = localStorage.getItem('voley_name');
         const isAdmin = localStorage.getItem('is_admin') === 'true';
-        
-        if(isAdmin) document.getElementById('adminMode').style.display = "block";
+        const currentInput = document.getElementById('nameInput').value.trim();
 
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
 
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            
-            // PRZYCISK USUŃ: Pokaże się gdy:
-            // 1. Jesteś adminem
-            // 2. To Twoje zapamiętane imię
-            // 3. Wpisałeś właśnie to imię w pole tekstowe (ratunek gdy czyścisz ciasteczka)
-            let btn = "";
-            if (isAdmin || p.name === mySavedName || p.name === currentInputValue) {
-                btn = `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>`;
-            }
+            const canDelete = isAdmin || p.name === myName || p.name === currentInput;
+            const btn = canDelete ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
             if (i < 14) l1.appendChild(li); else l2.appendChild(li);
