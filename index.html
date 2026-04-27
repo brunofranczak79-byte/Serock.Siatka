@@ -43,8 +43,6 @@
 
 <script>
     // --- KONFIGURACJA ---
-    const ADMIN_PASS = "admin123"; // Twoje hasło admina
-
     const firebaseConfig = {
         apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
         authDomain: "siatka-58398.firebaseapp.com",
@@ -58,7 +56,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    // --- LOGIKA TIMERA ---
+    // --- LOGIKA TIMERA I STATUSU ---
     function updateTimer() {
         const now = new Date();
         const statusBox = document.getElementById('statusBox');
@@ -76,6 +74,7 @@
         const mins = Math.floor((diff / 1000 / 60) % 60);
         const secs = Math.floor((diff / 1000) % 60);
 
+        // Zapisy otwarte od niedzieli 20:00 do czwartku 20:20
         const isOpen = (now.getDay() === 0 && now.getHours() >= 20) || 
                        (now.getDay() >= 1 && now.getDay() < 4) || 
                        (now.getDay() === 4 && (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 20)));
@@ -92,47 +91,59 @@
 
         if(isAdmin) {
             document.getElementById('adminMode').style.display = "block";
+        } else {
+            document.getElementById('adminMode').style.display = "none";
         }
     }
 
     setInterval(updateTimer, 1000);
     updateTimer();
 
-    // --- DODAWANIE / LOGOWANIE ADMINA ---
+    // --- GŁÓWNA FUNKCJA (ZAPIS / ADMIN) ---
     function join() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
 
-        if (name === ADMIN_PASS) {
+        // 1. Logowanie Admina
+        if (name === "admin123") {
             localStorage.setItem('is_admin', 'true');
-            alert("Witaj Szefie! Tryb administratora aktywny.");
+            alert("🔓 Tryb administratora aktywny!");
             input.value = "";
             location.reload();
             return;
         }
 
+        // 2. Wylogowanie Admina
+        if (name === "admin1234") {
+            localStorage.removeItem('is_admin');
+            alert("🔒 Wylogowano z trybu administratora.");
+            input.value = "";
+            location.reload();
+            return;
+        }
+
+        // 3. Walidacja zapisu
         if (name.length < 3) return alert("Wpisz imię i nazwisko!");
         
-        // Zwykły użytkownik nie może się zapisać dwa razy
-        if (localStorage.getItem('voley_id') && localStorage.getItem('is_admin') !== 'true') {
+        const isAdmin = localStorage.getItem('is_admin') === 'true';
+        if (localStorage.getItem('voley_id') && !isAdmin) {
             return alert("Już jesteś na liście!");
         }
 
+        // 4. Wysłanie do bazy
         const newRef = db.push();
         newRef.set({ name: name, ts: Date.now() }).then(() => {
-            // Zapisujemy ID tylko jeśli nie jesteśmy adminem (żeby admin nie "nadpisał" swojego klucza)
-            if (localStorage.getItem('is_admin') !== 'true') {
+            if (!isAdmin) {
                 localStorage.setItem('voley_id', newRef.key);
             }
             input.value = "";
-        });
+        }).catch(err => alert("Błąd: " + err.message));
     }
 
-    // --- USUWANIE ---
+    // --- FUNKCJA USUWANIA ---
     function removePlayer(id) {
         if (confirm("Czy na pewno chcesz usunąć ten wpis?")) {
             db.child(id).remove().then(() => {
-                // Jeśli usunęliśmy samego siebie, czyścimy klucz z pamięci
                 if (localStorage.getItem('voley_id') === id) {
                     localStorage.removeItem('voley_id');
                 }
@@ -140,7 +151,7 @@
         }
     }
 
-    // --- WYŚWIETLANIE LISTY (KLUCZOWA ZMIANA) ---
+    // --- ODBIERANIE DANYCH Z BAZY ---
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
@@ -150,25 +161,8 @@
         const isAdmin = localStorage.getItem('is_admin') === 'true';
         
         l1.innerHTML = ""; l2.innerHTML = "";
-        const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
-
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            
-            // LOGIKA PRZYCISKU:
-            // Pokaż jeśli (Jestem adminem) LUB (To jest mój unikalny identyfikator)
-            let btn = "";
-            if (isAdmin || p.id === myId) {
-                btn = `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>`;
-            }
-            
-            li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
-            if (i < 14) l1.appendChild(li); else l2.appendChild(li);
-        });
         
-        document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
-        document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
-    });
-</script>
-</body>
-</html>
+        const players = data ? Object.keys(data).map(id => ({
+            id: id,
+            ...data[id]
+        })).sort((
