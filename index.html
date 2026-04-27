@@ -17,7 +17,7 @@
         h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #666; display: flex; justify-content: space-between; padding-bottom: 5px; }
         ul { list-style: none; padding: 0; text-align: left; margin: 0; }
         li { background: #f9f9f9; margin: 5px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
-        .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -58,7 +58,6 @@
         const statusBox = document.getElementById('statusBox');
         const joinBtn = document.getElementById('joinBtn');
         
-        // Ustawienie otwarcia: Najbliższa niedziela 20:00
         let target = new Date();
         target.setDate(now.getDate() + (7 - now.getDay()) % 7);
         target.setHours(20, 0, 0, 0);
@@ -70,7 +69,6 @@
         const mins = Math.floor((diff / 1000 / 60) % 60);
         const secs = Math.floor((diff / 1000) % 60);
 
-        // Zapisy otwarte od niedzieli 20:00 do czwartku 20:20
         const isOpen = (now.getDay() === 0 && now.getHours() >= 20) || 
                        (now.getDay() >= 1 && now.getDay() < 4) || 
                        (now.getDay() === 4 && (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 20)));
@@ -81,48 +79,3 @@
             joinBtn.disabled = false;
         } else {
             statusBox.innerHTML = `ZAPISY RUSZAJĄ ZA:<div class="timer">${days}d ${hours}h ${mins}m ${secs}s</div>`;
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-        }
-    }
-
-    setInterval(updateTimer, 1000);
-    updateTimer();
-
-    function join() {
-        const name = document.getElementById('nameInput').value.trim();
-        if (name.length < 3) return alert("Wpisz imię i nazwisko!");
-        if (localStorage.getItem('voley_id')) return alert("Już jesteś na liście!");
-
-        db.push().set({ name: name, ts: Date.now() }).then(() => {
-            localStorage.setItem('voley_id', "done");
-            document.getElementById('nameInput').value = "";
-        });
-    }
-
-    db.on('value', snap => {
-        const data = snap.val();
-        const l1 = document.getElementById('list1');
-        const l2 = document.getElementById('list2');
-        l1.innerHTML = ""; l2.innerHTML = "";
-        const players = data ? Object.keys(data).map(id => data[id]).sort((a,b) => a.ts - b.ts) : [];
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span>`;
-            if (i < 14) l1.appendChild(li); else l2.appendChild(li);
-        });
-        document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
-        document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
-    });
-
-    // Reset bazy w czwartek 20:20
-    setInterval(() => {
-        const now = new Date();
-        if (now.getDay() === 4 && now.getHours() === 20 && now.getMinutes() === 20) {
-            db.remove();
-            localStorage.removeItem('voley_id');
-        }
-    }, 30000);
-</script>
-</body>
-</html>
