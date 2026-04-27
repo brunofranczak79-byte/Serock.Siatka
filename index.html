@@ -3,42 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siatkówka Serock - Zapisy</title>
+    <title>Siatkówka Serock</title>
     <style>
-        :root { --primary: #1a73e8; --danger: #dc3545; --success: #28a745; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        
-        .status { padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: bold; color: white; transition: 0.3s; }
-        .open { background-color: var(--success); box-shadow: 0 4px 12px rgba(40,167,69,0.3); }
-        .closed { background-color: #444; }
-        
-        input { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
-        input:focus { border-color: var(--primary); }
-        
-        button { width: 100%; padding: 14px; background-color: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 10px; font-size: 16px; transition: 0.2s; }
-        button:hover { opacity: 0.9; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-        
-        h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #f8f9fa; text-align: left; font-size: 14px; color: #555; display: flex; justify-content: space-between; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li { background: #f8f9fa; margin-bottom: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; border-radius: 10px; font-size: 15px; animation: slideIn 0.3s ease-out; }
-        
-        .del-btn { background: var(--danger); border-radius: 6px; padding: 6px 10px; font-size: 11px; width: auto; }
-        .admin-tag { background: #ffc107; color: #000; font-size: 10px; padding: 4px 8px; border-radius: 5px; margin-bottom: 10px; display: none; font-weight: bold; }
-        
-        @keyframes slideIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 20px; margin: 0; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 100%; max-width: 340px; text-align: center; }
+        .status { padding: 10px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; background-color: #28a745; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; }
+        h4 { margin: 20px 0 10px 0; border-bottom: 1px solid #eee; text-align: left; display: flex; justify-content: space-between; }
+        ul { list-style: none; padding: 0; text-align: left; }
+        li { background: #fdfdfd; margin-bottom: 5px; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; border: 1px solid #eee; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .admin-badge { background: #ffc107; color: black; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 10px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="margin-top:0">🏐 Siatkówka</h2>
-    <div id="adminBadge" class="admin-tag">Tryb Administratora Aktywny</div>
-    <div id="statusBox" class="status">Łączenie...</div>
+    <h2>🏐 Siatkówka</h2>
+    <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA</div>
+    <div id="statusBox" class="status">ZAPISY OTWARTE</div>
     
     <input type="text" id="nameInput" placeholder="Twoje Imię i Nazwisko">
-    <button id="joinBtn" onclick="handleAction()">Zapisz się</button>
+    <button id="joinBtn" onclick="join()">Zapisz się</button>
     
     <h4>SKŁAD <span id="count1">0/14</span></h4>
     <ul id="list1"></ul>
@@ -61,116 +48,55 @@
         appId: "1:800028424106:web:e9ef944a3b8308505d5dd3"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    // --- LOGIKA CZASU ---
-    function checkStatus() {
-        const now = new Date();
-        const isAdmin = localStorage.getItem('is_admin') === 'true';
-        
-        // Otwarcie: Niedziela 20:00 | Zamknięcie: Czwartek 20:20
-        const isSundayAfter20 = (now.getDay() === 0 && now.getHours() >= 20);
-        const isMonToWed = (now.getDay() >= 1 && now.getDay() <= 3);
-        const isThursdayBefore2020 = (now.getDay() === 4 && (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 20)));
-        
-        const isOpen = isSundayAfter20 || isMonToWed || isThursdayBefore2020;
-        const statusBox = document.getElementById('statusBox');
-        const joinBtn = document.getElementById('joinBtn');
-
-        if (isOpen || isAdmin) {
-            statusBox.innerHTML = "ZAPISY OTWARTE";
-            statusBox.className = "status open";
-            joinBtn.disabled = false;
-        } else {
-            statusBox.innerHTML = "ZAPISY ZAMKNIĘTE";
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-        }
-        document.getElementById('adminBadge').style.display = isAdmin ? "block" : "none";
-
-        // Automatyczny reset bazy w czwartek o 20:21
-        if (now.getDay() === 4 && now.getHours() === 20 && now.getMinutes() === 21) {
-            db.remove();
-            localStorage.removeItem('voley_id');
-        }
-    }
-    setInterval(checkStatus, 10000);
-    checkStatus();
-
-    // --- GŁÓWNA AKCJA ---
-    function handleAction() {
+    function join() {
         const input = document.getElementById('nameInput');
-        const val = input.value.trim();
+        const name = input.value.trim();
 
-        if (val === "admin123") {
+        if (name === "admin123") {
             localStorage.setItem('is_admin', 'true');
-            alert("Witaj Adminie!");
-            location.reload();
-            return;
+            location.reload(); return;
         }
-        if (val === "admin1234") {
+        if (name === "admin1234") {
             localStorage.clear();
-            alert("Wylogowano i zresetowano status.");
-            location.reload();
-            return;
+            location.reload(); return;
         }
 
-        if (val.length < 3) return alert("Wpisz pełne imię i nazwisko!");
+        if (name.length < 3) return alert("Wpisz imię!");
 
-        const myId = localStorage.getItem('voley_id');
-        const isAdmin = localStorage.getItem('is_admin') === 'true';
-
-        // Sprawdź czy użytkownika faktycznie nie ma w bazie (naprawa błędu "Już jesteś zapisany")
-        db.once('value').then(snap => {
-            const data = snap.val() || {};
-            if (myId && !data[myId] && !isAdmin) {
-                localStorage.removeItem('voley_id'); // Naprawa lokalnego błędu
-            }
-
-            if (localStorage.getItem('voley_id') && !isAdmin) {
-                alert("Już jesteś na liście!");
-                return;
-            }
-
-            const newPlayer = db.push();
-            newPlayer.set({ name: val, ts: Date.now() })
-                .then(() => {
-                    if (!isAdmin) localStorage.setItem('voley_id', newPlayer.key);
-                    input.value = "";
-                })
-                .catch(err => alert("Błąd zapisu! Sprawdź reguły RULES w Firebase."));
+        db.push().set({ name: name, ts: Date.now() }).then(() => {
+            localStorage.setItem('voley_name', name);
+            input.value = "";
         });
     }
 
-    function remove(id) {
-        if (confirm("Usunąć ten wpis?")) {
-            db.child(id).remove().then(() => {
-                if (localStorage.getItem('voley_id') === id) localStorage.removeItem('voley_id');
-            });
-        }
+    function removePlayer(id) {
+        if (confirm("Usunąć?")) db.child(id).remove();
     }
 
-    // --- ODŚWIEŻANIE LISTY ---
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
-        const myId = localStorage.getItem('voley_id');
+        const mySavedName = localStorage.getItem('voley_name');
         const isAdmin = localStorage.getItem('is_admin') === 'true';
+        
+        if(isAdmin) document.getElementById('adminMode').style.display = "block";
 
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
 
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            const canDelete = (isAdmin || p.id === myId);
-            const btn = canDelete ? `<button class="del-btn" onclick="remove('${p.id}')">Usuń</button>` : "";
+            // ZASADA: Przycisk usuń pokaże się jeśli Imię pasuje LUB jesteś adminem
+            let btn = (isAdmin || p.name === mySavedName) ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
             if (i < 14) l1.appendChild(li); else l2.appendChild(li);
         });
-
+        
         document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
         document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
     });
