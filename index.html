@@ -24,10 +24,10 @@
 
 <div class="container">
     <h2>🏐 Siatkówka</h2>
-    <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA</div>
+    <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA (Zapisywanie wyłączone)</div>
     <div id="statusBox" class="status">Ładowanie...</div>
     
-    <input type="text" id="nameInput" placeholder="Twoje Imię i Nazwisko">
+    <input type="text" id="nameInput" placeholder="Twoje Imię i Nazwisko" oninput="refreshListOnly()">
     <button id="joinBtn" onclick="join()">Zapisz się</button>
     
     <h4>SKŁAD <span id="count1">0/14</span></h4>
@@ -62,7 +62,6 @@
         const isAdmin = localStorage.getItem('is_admin') === 'true';
         const mySavedId = localStorage.getItem('voley_id');
 
-        // NIEDZIELA 10:00 do CZWARTEK 19:30
         const isSundayOpen = (day === 0 && hour >= 10);
         const isWeekOpen = (day >= 1 && day <= 3);
         const isThursdayOpen = (day === 4 && (hour < 19 || (hour === 19 && min < 30)));
@@ -71,26 +70,32 @@
         const statusBox = document.getElementById('statusBox');
         const joinBtn = document.getElementById('joinBtn');
 
-        if (isOpen || isAdmin) {
+        if (isAdmin) {
+            statusBox.innerText = "TRYB ADMINA";
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
+            joinBtn.innerText = "Admin nie może się zapisać";
+            document.getElementById('adminMode').style.display = "block";
+        } else if (isOpen) {
             statusBox.innerText = "ZAPISY OTWARTE";
             statusBox.className = "status open";
-            // Blokada przycisku jeśli już zapisany
-            joinBtn.disabled = (mySavedId && !isAdmin);
-            if (mySavedId && !isAdmin) joinBtn.innerText = "Już jesteś zapisany";
-            else joinBtn.innerText = "Zapisz się";
+            if (mySavedId) {
+                joinBtn.disabled = true;
+                joinBtn.innerText = "Już jesteś zapisany";
+            } else {
+                joinBtn.disabled = false;
+                joinBtn.innerText = "Zapisz się";
+            }
         } else {
             statusBox.innerText = "ZAPISY ZAMKNIĘTE";
             statusBox.className = "status closed";
             joinBtn.disabled = true;
         }
 
-        // RESET: Czwartek 22:00
         if (day === 4 && hour === 22 && min === 0) {
             db.remove();
             localStorage.removeItem('voley_id');
-            localStorage.removeItem('voley_name');
         }
-        if(isAdmin) document.getElementById('adminMode').style.display = "block";
     }
 
     setInterval(checkStatus, 5000);
@@ -99,22 +104,16 @@
     function join() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
-        const isAdmin = localStorage.getItem('is_admin') === 'true';
 
         if (name === "admin123") { localStorage.setItem('is_admin', 'true'); location.reload(); return; }
         if (name === "admin1234") { localStorage.clear(); location.reload(); return; }
+        
+        if (localStorage.getItem('is_admin') === 'true') return;
         if (name.length < 3) return alert("Wpisz imię!");
-
-        if (localStorage.getItem('voley_id') && !isAdmin) {
-            alert("Możesz zapisać tylko jedną osobę!");
-            return;
-        }
 
         db.once('value').then(snap => {
             const players = snap.val() ? Object.values(snap.val()) : [];
-            const exists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
-            
-            if (exists && !isAdmin) {
+            if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
                 alert("To imię jest już na liście!");
                 return;
             }
@@ -141,26 +140,25 @@
         }
     }
 
-    db.on('value', snap => {
-        const data = snap.val();
+    // Funkcja wywoływana przy pisaniu w polu tekstowym, żeby przycisk "Usuń" wyskoczył od razu
+    function refreshListOnly() {
+        db.once('value', snap => renderList(snap.val()));
+    }
+
+    function renderList(data) {
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
         const myId = localStorage.getItem('voley_id');
         const isAdmin = localStorage.getItem('is_admin') === 'true';
+        const currentInput = document.getElementById('nameInput').value.trim().toLowerCase();
 
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
 
-        // Jeśli Twojego ID nie ma w bazie, wyczyść pamięć lokalną (naprawa błędów)
-        if (myId && !players.some(p => p.id === myId)) {
-            localStorage.removeItem('voley_id');
-            localStorage.removeItem('voley_name');
-            checkStatus();
-        }
-
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            const canDelete = isAdmin || p.id === myId;
+            // Usuwanie działa jeśli: jesteś adminem LUB Twoje ID pasuje LUB wpisałeś to samo imię
+            const canDelete = isAdmin || p.id === myId || p.name.toLowerCase() === currentInput;
             const btn = canDelete ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
@@ -169,7 +167,9 @@
         
         document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
         document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
-    });
+    }
+
+    db.on('value', snap => renderList(snap.val()));
 </script>
 </body>
 </html>
