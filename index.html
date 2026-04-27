@@ -24,7 +24,7 @@
 
 <div class="container">
     <h2>🏐 Siatkówka</h2>
-    <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA (Zapisywanie wyłączone)</div>
+    <div id="adminMode" class="admin-badge">🔓 TRYB ADMINISTRATORA (Możesz zapisywać i usuwać wszystkich)</div>
     <div id="statusBox" class="status">Ładowanie...</div>
     
     <input type="text" id="nameInput" placeholder="Twoje Imię i Nazwisko" oninput="refreshListOnly()">
@@ -71,15 +71,14 @@
         const joinBtn = document.getElementById('joinBtn');
 
         if (isAdmin) {
-            statusBox.innerText = "TRYB ADMINA";
-            statusBox.className = "status closed";
-            joinBtn.disabled = true;
-            joinBtn.innerText = "Admin nie może się zapisać";
             document.getElementById('adminMode').style.display = "block";
-        } else if (isOpen) {
+        }
+
+        if (isOpen || isAdmin) {
             statusBox.innerText = "ZAPISY OTWARTE";
             statusBox.className = "status open";
-            if (mySavedId) {
+            // Admin może się zapisać zawsze, zwykły tylko raz
+            if (mySavedId && !isAdmin) {
                 joinBtn.disabled = true;
                 joinBtn.innerText = "Już jesteś zapisany";
             } else {
@@ -92,9 +91,11 @@
             joinBtn.disabled = true;
         }
 
+        // RESET: Czwartek 22:00
         if (day === 4 && hour === 22 && min === 0) {
             db.remove();
             localStorage.removeItem('voley_id');
+            localStorage.removeItem('voley_name');
         }
     }
 
@@ -104,24 +105,29 @@
     function join() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
+        const isAdmin = localStorage.getItem('is_admin') === 'true';
 
         if (name === "admin123") { localStorage.setItem('is_admin', 'true'); location.reload(); return; }
         if (name === "admin1234") { localStorage.clear(); location.reload(); return; }
         
-        if (localStorage.getItem('is_admin') === 'true') return;
-        if (name.length < 3) return alert("Wpisz imię!");
+        if (name.length < 3) return alert("Wpisz pełne imię!");
 
         db.once('value').then(snap => {
             const players = snap.val() ? Object.values(snap.val()) : [];
-            if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+            
+            // Blokada powtarzających się imion (chyba że admin chce kogoś dopisać)
+            if (players.some(p => p.name.toLowerCase() === name.toLowerCase()) && !isAdmin) {
                 alert("To imię jest już na liście!");
                 return;
             }
 
             const newRef = db.push();
             newRef.set({ name: name, ts: Date.now() }).then(() => {
-                localStorage.setItem('voley_id', newRef.key);
-                localStorage.setItem('voley_name', name);
+                // Tylko zwykły użytkownik dostaje blokadę urządzenia
+                if (!isAdmin) {
+                    localStorage.setItem('voley_id', newRef.key);
+                    localStorage.setItem('voley_name', name);
+                }
                 input.value = "";
                 checkStatus();
             });
@@ -140,7 +146,6 @@
         }
     }
 
-    // Funkcja wywoływana przy pisaniu w polu tekstowym, żeby przycisk "Usuń" wyskoczył od razu
     function refreshListOnly() {
         db.once('value', snap => renderList(snap.val()));
     }
@@ -157,8 +162,8 @@
 
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            // Usuwanie działa jeśli: jesteś adminem LUB Twoje ID pasuje LUB wpisałeś to samo imię
-            const canDelete = isAdmin || p.id === myId || p.name.toLowerCase() === currentInput;
+            // Usuwanie: Admin może wszystko, Ty możesz swoje ID lub to co wpiszesz
+            const canDelete = isAdmin || p.id === myId || (currentInput.length > 2 && p.name.toLowerCase() === currentInput);
             const btn = canDelete ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
