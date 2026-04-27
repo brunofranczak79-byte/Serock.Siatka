@@ -1,5 +1,46 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siatkówka Serock</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 30px; margin: 0; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 320px; text-align: center; }
+        .status { padding: 12px; margin-bottom: 15px; border-radius: 10px; font-weight: bold; color: white; min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .open { background-color: #28a745; }
+        .closed { background-color: #444; }
+        .timer { font-size: 18px; margin-top: 5px; color: #ffeb3b; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; font-size: 16px; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        h4 { margin: 25px 0 10px 0; border-bottom: 2px solid #eee; text-align: left; font-size: 13px; color: #666; display: flex; justify-content: space-between; padding-bottom: 5px; }
+        ul { list-style: none; padding: 0; text-align: left; margin: 0; }
+        li { background: #f9f9f9; margin: 5px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏐 Siatkówka</h2>
+    <div id="statusBox" class="status closed">Ładowanie...</div>
+    
+    <input type="text" id="nameInput" placeholder="Imię i nazwisko">
+    <button id="joinBtn" onclick="join()">Zapisz się</button>
+    
+    <h4>SKŁAD <span id="count1">0/14</span></h4>
+    <ul id="list1"></ul>
+    
+    <h4>REZERWA <span id="count2">0/10</span></h4>
+    <ul id="list2"></ul>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
-    // Konfiguracja (pozostaje Twoja)
+    // 1. Konfiguracja Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyBcPfjR646-SpN0xPuBCXQKkT7NLkxs_9c",
         authDomain: "siatka-58398.firebaseapp.com",
@@ -10,74 +51,101 @@
         appId: "1:800028424106:web:e9ef944a3b8308505d5dd3"
     };
 
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+    // Inicjalizacja z obsługą błędu
+    let db;
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.database().ref('players');
+    } catch (e) {
+        console.error("Błąd Firebase:", e);
+        document.getElementById('statusBox').innerHTML = "BŁĄD POŁĄCZENIA";
     }
-    const db = firebase.database().ref('players');
 
-    // ... (funkcja updateTimer bez zmian) ...
-
-    function join() {
-        const nameInput = document.getElementById('nameInput');
-        const name = nameInput.value.trim();
+    // 2. Obsługa Timera i blokady przycisku
+    function updateTimer() {
+        const now = new Date();
+        const statusBox = document.getElementById('statusBox');
+        const joinBtn = document.getElementById('joinBtn');
         
-        if (name.length < 3) return alert("Wpisz imię i nazwisko!");
-        if (localStorage.getItem('voley_id')) return alert("Już jesteś na liście!");
+        let target = new Date();
+        target.setDate(now.getDate() + (7 - now.getDay()) % 7);
+        target.setHours(20, 0, 0, 0);
+        if (now > target) target.setDate(target.getDate() + 7);
 
-        const newPlayerRef = db.push();
-        const playerId = newPlayerRef.key;
+        const diff = target - now;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const mins = Math.floor((diff / 1000 / 60) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
 
-        newPlayerRef.set({ 
-            name: name, 
-            ts: Date.now() 
-        })
-        .then(() => {
-            localStorage.setItem('voley_id', playerId);
-            nameInput.value = "";
-            alert("Zapisano pomyślnie!");
-        })
-        .catch((error) => {
-            console.error(error);
-            alert("Błąd zapisu: " + error.message + "\nSprawdź reguły bazy danych!");
-        });
-    }
+        // OTWARTE: niedziela 20:00 -> czwartek 20:20
+        const isOpen = (now.getDay() === 0 && now.getHours() >= 20) || 
+                       (now.getDay() >= 1 && now.getDay() < 4) || 
+                       (now.getDay() === 4 && (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 20)));
 
-    // Funkcja usuwania (którą prosiłeś wcześniej)
-    function removeMe(id) {
-        if (confirm("Czy na pewno chcesz się wypisać?")) {
-            db.child(id).remove()
-                .then(() => {
-                    localStorage.removeItem('voley_id');
-                })
-                .catch(err => alert("Błąd przy wypisywaniu: " + err.message));
+        if (isOpen) {
+            statusBox.innerHTML = "ZAPISY OTWARTE";
+            statusBox.className = "status open";
+            joinBtn.disabled = false;
+        } else {
+            statusBox.innerHTML = `ZAPISY RUSZAJĄ ZA:<div class="timer">${days}d ${hours}h ${mins}m ${secs}s</div>`;
+            statusBox.className = "status closed";
+            joinBtn.disabled = true;
         }
     }
 
-    // Odświeżanie listy (poprawione)
-    db.on('value', snap => {
-        const data = snap.val();
-        const l1 = document.getElementById('list1');
-        const l2 = document.getElementById('list2');
-        const myId = localStorage.getItem('voley_id');
-        
-        l1.innerHTML = ""; l2.innerHTML = "";
-        
-        const players = data ? Object.keys(data).map(id => ({
-            id: id,
-            ...data[id]
-        })).sort((a,b) => a.ts - b.ts) : [];
+    setInterval(updateTimer, 1000);
+    updateTimer();
 
-        players.forEach((p, i) => {
-            const li = document.createElement('li');
-            let content = `<span><b>${i+1}.</b> ${p.name}</span>`;
-            if (p.id === myId) {
-                content += `<button class="del-btn" onclick="removeMe('${p.id}')">❌</button>`;
-            }
-            li.innerHTML = content;
-            if (i < 14) l1.appendChild(li); else l2.appendChild(li);
+    // 3. Funkcja zapisu
+    function join() {
+        const name = document.getElementById('nameInput').value.trim();
+        if (name.length < 3) return alert("Wpisz imię i nazwisko!");
+        if (localStorage.getItem('voley_id')) return alert("Już jesteś na liście!");
+
+        const newRef = db.push();
+        newRef.set({ name: name, ts: Date.now() })
+            .then(() => {
+                localStorage.setItem('voley_id', newRef.key);
+                document.getElementById('nameInput').value = "";
+            })
+            .catch(err => alert("Błąd zapisu: " + err.message));
+    }
+
+    // 4. Funkcja usuwania (Twój wybór)
+    function removeMe(id) {
+        if (confirm("Wypisać się z listy?")) {
+            db.child(id).remove().then(() => {
+                localStorage.removeItem('voley_id');
+            });
+        }
+    }
+
+    // 5. Pobieranie listy na żywo
+    if (db) {
+        db.on('value', snap => {
+            const data = snap.val();
+            const l1 = document.getElementById('list1');
+            const l2 = document.getElementById('list2');
+            const myId = localStorage.getItem('voley_id');
+            
+            l1.innerHTML = ""; l2.innerHTML = "";
+            const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
+
+            players.forEach((p, i) => {
+                const li = document.createElement('li');
+                let btn = p.id === myId ? `<button class="del-btn" onclick="removeMe('${p.id}')">Usuń</button>` : "";
+                li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
+                if (i < 14) l1.appendChild(li); else l2.appendChild(li);
+            });
+            
+            document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
+            document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
         });
-
-        document.getElementById('count1').innerText = Math.min(players.length, 14) + "/14";
-        document.getElementById('count2').innerText = Math.max(0, players.length - 14) + "/10";
-    });
+    }
 </script>
+
+</body>
+</html>
