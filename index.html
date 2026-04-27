@@ -54,87 +54,113 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database().ref('players');
 
-    function checkTime() {
+    function checkStatus() {
         const now = new Date();
-        const day = now.getDay(); // 0-Nd, 1-Pn, ..., 4-Czw
+        const day = now.getDay(); 
         const hour = now.getHours();
         const min = now.getMinutes();
         const isAdmin = localStorage.getItem('is_admin') === 'true';
+        const mySavedId = localStorage.getItem('voley_id');
 
-        // Otwarcie: Niedziela 10:00
+        // NIEDZIELA 10:00 do CZWARTEK 19:30
         const isSundayOpen = (day === 0 && hour >= 10);
         const isWeekOpen = (day >= 1 && day <= 3);
-        // Koniec: Czwartek 19:30
         const isThursdayOpen = (day === 4 && (hour < 19 || (hour === 19 && min < 30)));
-
         const isOpen = isSundayOpen || isWeekOpen || isThursdayOpen;
+
         const statusBox = document.getElementById('statusBox');
         const joinBtn = document.getElementById('joinBtn');
 
         if (isOpen || isAdmin) {
             statusBox.innerText = "ZAPISY OTWARTE";
             statusBox.className = "status open";
-            joinBtn.disabled = false;
+            // Blokada przycisku jeśli już zapisany
+            joinBtn.disabled = (mySavedId && !isAdmin);
+            if (mySavedId && !isAdmin) joinBtn.innerText = "Już jesteś zapisany";
+            else joinBtn.innerText = "Zapisz się";
         } else {
             statusBox.innerText = "ZAPISY ZAMKNIĘTE";
             statusBox.className = "status closed";
             joinBtn.disabled = true;
         }
 
-        // RESET: Czwartek 22:00 (19:30 + 2,5h)
+        // RESET: Czwartek 22:00
         if (day === 4 && hour === 22 && min === 0) {
             db.remove();
+            localStorage.removeItem('voley_id');
             localStorage.removeItem('voley_name');
         }
-
         if(isAdmin) document.getElementById('adminMode').style.display = "block";
     }
 
-    setInterval(checkTime, 10000);
-    checkTime();
+    setInterval(checkStatus, 5000);
+    checkStatus();
 
     function join() {
         const input = document.getElementById('nameInput');
         const name = input.value.trim();
+        const isAdmin = localStorage.getItem('is_admin') === 'true';
 
         if (name === "admin123") { localStorage.setItem('is_admin', 'true'); location.reload(); return; }
         if (name === "admin1234") { localStorage.clear(); location.reload(); return; }
-        if (name.length < 3) return alert("Wpisz pełne imię!");
+        if (name.length < 3) return alert("Wpisz imię!");
+
+        if (localStorage.getItem('voley_id') && !isAdmin) {
+            alert("Możesz zapisać tylko jedną osobę!");
+            return;
+        }
 
         db.once('value').then(snap => {
             const players = snap.val() ? Object.values(snap.val()) : [];
             const exists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
             
-            if (exists && localStorage.getItem('is_admin') !== 'true') {
-                alert("Jesteś już na liście!");
+            if (exists && !isAdmin) {
+                alert("To imię jest już na liście!");
                 return;
             }
 
-            db.push().set({ name: name, ts: Date.now() }).then(() => {
+            const newRef = db.push();
+            newRef.set({ name: name, ts: Date.now() }).then(() => {
+                localStorage.setItem('voley_id', newRef.key);
                 localStorage.setItem('voley_name', name);
                 input.value = "";
+                checkStatus();
             });
         });
     }
 
     function removePlayer(id) {
-        if (confirm("Usunąć?")) db.child(id).remove();
+        if (confirm("Usunąć zapis?")) {
+            db.child(id).remove().then(() => {
+                if (localStorage.getItem('voley_id') === id) {
+                    localStorage.removeItem('voley_id');
+                    localStorage.removeItem('voley_name');
+                }
+                checkStatus();
+            });
+        }
     }
 
     db.on('value', snap => {
         const data = snap.val();
         const l1 = document.getElementById('list1');
         const l2 = document.getElementById('list2');
-        const myName = localStorage.getItem('voley_name');
+        const myId = localStorage.getItem('voley_id');
         const isAdmin = localStorage.getItem('is_admin') === 'true';
-        const currentInput = document.getElementById('nameInput').value.trim();
 
         l1.innerHTML = ""; l2.innerHTML = "";
         const players = data ? Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.ts - b.ts) : [];
 
+        // Jeśli Twojego ID nie ma w bazie, wyczyść pamięć lokalną (naprawa błędów)
+        if (myId && !players.some(p => p.id === myId)) {
+            localStorage.removeItem('voley_id');
+            localStorage.removeItem('voley_name');
+            checkStatus();
+        }
+
         players.forEach((p, i) => {
             const li = document.createElement('li');
-            const canDelete = isAdmin || p.name === myName || p.name === currentInput;
+            const canDelete = isAdmin || p.id === myId;
             const btn = canDelete ? `<button class="del-btn" onclick="removePlayer('${p.id}')">Usuń</button>` : "";
             
             li.innerHTML = `<span><b>${i+1}.</b> ${p.name}</span> ${btn}`;
